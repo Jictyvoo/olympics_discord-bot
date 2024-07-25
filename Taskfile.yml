@@ -1,0 +1,52 @@
+version: "3"
+
+vars:
+  TEST_CMD: "go test ./..."
+  DATABASE_NAME: "olympics-2024_PARIS.db"
+  MIGRATIONS_DIRECTORY: "build/migrations"
+  SCHEMA_DIRECTORY: "build/entschema"
+
+tasks:
+  install:deps:
+    desc: Install all Go dependencies used for the project
+    cmds:
+      - go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
+      - go install entgo.io/ent/cmd/ent@latest # Used to generate the schema migration
+      - brew install ariga/tap/atlas
+
+  migration:hash:
+    desc: Run atlas migration hash to fix migration hash
+    cmds:
+      - atlas migrate hash --dir file://{{.MIGRATIONS_DIRECTORY}}
+
+  migration:gen:
+    desc: Run atlas migration apply to generate versioned SQL files
+    cmds:
+      - atlas migrate diff {{.DIFF_NAME}} --dir "file://{{.MIGRATIONS_DIRECTORY}}" --to ent://{{.SCHEMA_DIRECTORY}} --dev-url "{{.DEV_URL}}"
+      - ./build/remove_backticks.sh "{{.MIGRATIONS_DIRECTORY}}"
+      - task: migration:hash
+    vars:
+      DEV_URL: "sqlite://file?mode=memory&cache=shared&_fk=1"
+      DIFF_NAME: "{{.DIFF_NAME}}"
+
+  migration:apply:
+    desc: Run atlas migration apply to generate versioned SQL files
+    cmds:
+      - atlas migrate apply --dir file://{{.MIGRATIONS_DIRECTORY}} --url "{{.DB_URL}}"
+    vars:
+      DB_URL: "sqlite://{{.DATABASE_NAME}}"
+
+  generate:code:
+    desc: Run go generate to generate code based resources
+    cmds:
+      - go generate ./...
+      - sqlc generate
+
+  generate:all:
+    desc: Run all generation commands
+    cmds:
+#      - atlas schema inspect -u "{{.DB_URL}}" --format '{{"{{ sql . }}"}}' > build/schema.sql
+      - task: migration:gen
+      - task: generate:code
+    vars:
+      DB_URL: "sqlite://{{.DATABASE_NAME}}"
