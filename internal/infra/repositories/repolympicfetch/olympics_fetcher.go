@@ -10,8 +10,6 @@ import (
 	"github.com/jictyvoo/olympics_data_fetcher/internal/infra/datasources/dsrest"
 )
 
-const apiURL = "https://sph-s-api.olympics.com/summer/schedules/api/ENG/schedule/day/"
-
 type OlympicsFetcherImpl struct {
 	ds dsrest.RESTDataSource
 }
@@ -70,6 +68,7 @@ func (repo OlympicsFetcherImpl) parseAPIResp(response OlympicsAPIResponse) []ent
 }
 
 func (repo OlympicsFetcherImpl) FetchDataFromDay(day time.Time) ([]entities.OlympicEvent, error) {
+	const apiURL = "https://sph-s-api.olympics.com/summer/schedules/api/ENG/schedule/day/"
 	url := apiURL + day.Format(time.DateOnly)
 
 	resp, err := repo.ds.Get(url)
@@ -82,4 +81,25 @@ func (repo OlympicsFetcherImpl) FetchDataFromDay(day time.Time) ([]entities.Olym
 	err = decoder.Decode(&jsonResp)
 
 	return repo.parseAPIResp(jsonResp), err
+}
+
+func (repo OlympicsFetcherImpl) FetchWarchOn() ([]string, error) {
+	const apiURL = "https://sph-i-api.olympics.com/summer/info/api/ENG/mrh"
+	resp, err := repo.ds.Get(apiURL)
+	if err != nil {
+		return nil, err
+	}
+
+	decoder := json.NewDecoder(resp.Body)
+	var jsonResp WatchOnResp
+	err = decoder.Decode(&jsonResp)
+
+	urls := make([]string, 0, len(jsonResp.MrhItems))
+	for _, item := range jsonResp.MrhItems {
+		if item.Url != "" {
+			urls = append(urls, item.Url)
+		}
+	}
+
+	return urls, nil
 }
