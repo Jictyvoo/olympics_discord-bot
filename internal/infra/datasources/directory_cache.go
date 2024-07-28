@@ -4,6 +4,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
+	"time"
 
 	"github.com/jictyvoo/olympics_data_fetcher/internal/utils"
 )
@@ -39,9 +41,10 @@ func loadExistentFolderCache(folder *os.File) (map[string][]byte, error) {
 }
 
 type DirectoryCache struct {
-	rootPath    string
-	folderRef   *os.File
-	loadedCache map[string][]byte
+	rootPath      string
+	folderRef     *os.File
+	loadedCache   map[string][]byte
+	cacheDuration time.Duration
 }
 
 func NewDirectoryCache(rootPath string) (*DirectoryCache, error) {
@@ -55,16 +58,36 @@ func NewDirectoryCache(rootPath string) (*DirectoryCache, error) {
 	}
 
 	instanceCache.loadedCache, err = loadExistentFolderCache(folderRef)
+	if instanceCache.cacheDuration == 0 {
+		instanceCache.cacheDuration = time.Hour
+	}
 	return &instanceCache, err
 }
 
+func (d *DirectoryCache) subFolderName() string {
+	now := time.Now()
+	subFolderName := now.Format("20060102")
+	var divisionResult int
+	switch {
+
+	case d.cacheDuration < time.Hour:
+		divisionResult = now.Minute() / int(d.cacheDuration.Minutes())
+	case d.cacheDuration < 24*time.Hour:
+		divisionResult = now.Hour() / int(d.cacheDuration.Hours())
+	}
+	subFolderName += d.cacheDuration.String() + "__" + strconv.Itoa(divisionResult)
+
+	return subFolderName
+}
+
 func (d *DirectoryCache) Read(key string) ([]byte, error) {
-	if content, ok := d.loadedCache[key]; ok {
+	subFolderName := d.subFolderName()
+	filename := filepath.Join(d.rootPath, subFolderName, key)
+	if content, ok := d.loadedCache[filename]; ok {
 		return content, nil
 	}
 
 	// Read from file
-	filename := filepath.Join(d.rootPath, key)
 	file, err := os.Open(filename)
 	if err != nil {
 		return nil, err
@@ -83,11 +106,12 @@ func (d *DirectoryCache) Read(key string) ([]byte, error) {
 }
 
 func (d *DirectoryCache) Write(key string, data []byte) error {
-	d.loadedCache[key] = data
-	// Save on a file
-	filename := filepath.Join(d.rootPath, key)
+	subFolderName := filepath.Join(d.rootPath, d.subFolderName())
+	filename := filepath.Join(subFolderName, key)
+
+	d.loadedCache[filename] = data
 	// Ensure that the folder exists
-	if err := utils.CreateDirIfNotExist(filepath.Dir(filename)); err != nil {
+	if err := utils.CreateDirIfNotExist(subFolderName); err != nil {
 		return err
 	}
 
