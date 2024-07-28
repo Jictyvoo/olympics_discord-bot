@@ -45,6 +45,7 @@ func (repo OlympicsFetcherImpl) parseAPIResp(response OlympicsAPIResponse) []ent
 			EventName:      unit.EventUnitName,
 			DisciplineName: unit.DisciplineName,
 			Phase:          unit.PhaseName,
+			Gender:         entities.GenderOther,
 			StartAt:        unit.StartDate,
 			EndAt:          unit.EndDate,
 		}

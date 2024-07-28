@@ -1,9 +1,8 @@
 -- name: InsertCountry :one
-INSERT OR
-REPLACE
-INTO country_infos (created_at, updated_at, code, name, code_num, iso_code_len2, iso_code_len3,
-                    ioc_code, population, area_km2, gdp_usd)
+INSERT INTO country_infos (created_at, updated_at, code, name, code_num, iso_code_len2, iso_code_len3,
+                           ioc_code, population, area_km2, gdp_usd)
 VALUES (datetime('now'), datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(ioc_code) DO NOTHING
 RETURNING id;
 
 -- name: GetCountryByISOCode :one

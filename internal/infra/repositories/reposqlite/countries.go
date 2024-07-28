@@ -3,6 +3,7 @@ package reposqlite
 import (
 	"context"
 	"database/sql"
+	"errors"
 
 	"github.com/jictyvoo/olympics_data_fetcher/internal/entities"
 	"github.com/jictyvoo/olympics_data_fetcher/internal/infra/repositories/reposqlite/internal/dbgen"
@@ -10,8 +11,25 @@ import (
 
 func (r RepoSQLite) insertCountryCtx(
 	ctx context.Context, dbQuery *dbgen.Queries, country entities.CountryInfo,
-) (insertedID entities.Identifier, err error) {
-	id, insertErr := dbQuery.InsertCountry(
+) (countryID entities.Identifier, err error) {
+	var foundCountry dbgen.CountryInfo
+	foundCountry, err = dbQuery.GetCountryByISOCode(
+		ctx, dbgen.GetCountryByISOCodeParams{
+			IsoCodeLen2: country.ISOCode[0],
+			IsoCodeLen3: country.ISOCode[1],
+		},
+	)
+
+	if !errors.Is(err, sql.ErrNoRows) || foundCountry.ID > 0 {
+		countryID = entities.Identifier(foundCountry.ID)
+		if err != nil {
+			return
+		}
+		return
+	}
+
+	var insertedID int64
+	insertedID, err = dbQuery.InsertCountry(
 		ctx, dbgen.InsertCountryParams{
 			Code:        country.CodeNum,
 			Name:        country.Name,
@@ -25,11 +43,10 @@ func (r RepoSQLite) insertCountryCtx(
 		},
 	)
 
-	if insertErr != nil {
-		return 0, insertErr
+	countryID = entities.Identifier(insertedID)
+	if err != nil {
+		println(err.Error())
 	}
-
-	insertedID = entities.Identifier(id)
 	return
 }
 
@@ -61,9 +78,7 @@ func (r RepoSQLite) InsertCountries(
 
 	// Rollback the transaction in case of error
 	defer func() {
-		if err != nil {
-			_ = tx.Rollback()
-		}
+		_ = tx.Rollback()
 	}()
 
 	// Prepare the statement

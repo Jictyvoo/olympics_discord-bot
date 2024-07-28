@@ -10,26 +10,62 @@ import (
 	"time"
 )
 
+const GetDisciplineIDByName = `-- name: GetDisciplineIDByName :one
+SELECT id
+FROM olympic_disciplines
+WHERE name = ?
+`
+
+func (q *Queries) GetDisciplineIDByName(ctx context.Context, name string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, GetDisciplineIDByName, name)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const InsertDiscipline = `-- name: InsertDiscipline :one
+INSERT INTO olympic_disciplines (name, description)
+VALUES (?, ?)
+ON CONFLICT DO NOTHING
+RETURNING id
+`
+
+type InsertDisciplineParams struct {
+	Name        string      `db:"name"`
+	Description interface{} `db:"description"`
+}
+
+func (q *Queries) InsertDiscipline(ctx context.Context, arg InsertDisciplineParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, InsertDiscipline, arg.Name, arg.Description)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
 const SaveEvent = `-- name: SaveEvent :one
-INSERT INTO olympic_events (event_name, discipline_name, phase, gender, start_at, end_at, status)
+INSERT INTO olympic_events (event_name, discipline_id, phase, gender, start_at, end_at, status)
 VALUES (?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (event_name, discipline_id, phase, gender) DO UPDATE SET status=excluded.status,
+                                                                     start_at=excluded.start_at,
+                                                                     end_at=excluded.end_at,
+                                                                     id=id
 RETURNING id
 `
 
 type SaveEventParams struct {
-	EventName      string    `db:"event_name"`
-	DisciplineName string    `db:"discipline_name"`
-	Phase          string    `db:"phase"`
-	Gender         int64     `db:"gender"`
-	StartAt        time.Time `db:"start_at"`
-	EndAt          time.Time `db:"end_at"`
-	Status         string    `db:"status"`
+	EventName    string    `db:"event_name"`
+	DisciplineID int64     `db:"discipline_id"`
+	Phase        string    `db:"phase"`
+	Gender       int64     `db:"gender"`
+	StartAt      time.Time `db:"start_at"`
+	EndAt        time.Time `db:"end_at"`
+	Status       string    `db:"status"`
 }
 
 func (q *Queries) SaveEvent(ctx context.Context, arg SaveEventParams) (int64, error) {
 	row := q.db.QueryRowContext(ctx, SaveEvent,
 		arg.EventName,
-		arg.DisciplineName,
+		arg.DisciplineID,
 		arg.Phase,
 		arg.Gender,
 		arg.StartAt,

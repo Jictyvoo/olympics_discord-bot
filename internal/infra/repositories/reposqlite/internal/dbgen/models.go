@@ -30,15 +30,21 @@ type CountryInfo struct {
 	GdpUsd      interface{} `db:"gdp_usd"`
 }
 
+type OlympicDiscipline struct {
+	ID          int64       `db:"id"`
+	Name        string      `db:"name"`
+	Description interface{} `db:"description"`
+}
+
 type OlympicEvent struct {
-	ID             int64     `db:"id"`
-	EventName      string    `db:"event_name"`
-	DisciplineName string    `db:"discipline_name"`
-	Phase          string    `db:"phase"`
-	Gender         int64     `db:"gender"`
-	StartAt        time.Time `db:"start_at"`
-	EndAt          time.Time `db:"end_at"`
-	Status         string    `db:"status"`
+	ID           int64     `db:"id"`
+	EventName    string    `db:"event_name"`
+	Phase        string    `db:"phase"`
+	Gender       int64     `db:"gender"`
+	StartAt      time.Time `db:"start_at"`
+	EndAt        time.Time `db:"end_at"`
+	Status       string    `db:"status"`
+	DisciplineID int64     `db:"discipline_id"`
 }
 
 type Result struct {
