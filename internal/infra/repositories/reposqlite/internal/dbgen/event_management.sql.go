@@ -47,8 +47,7 @@ INSERT INTO olympic_events (event_name, discipline_id, phase, gender, start_at, 
 VALUES (?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (event_name, discipline_id, phase, gender) DO UPDATE SET status=excluded.status,
                                                                      start_at=excluded.start_at,
-                                                                     end_at=excluded.end_at,
-                                                                     id=id
+                                                                     end_at=excluded.end_at
 RETURNING id
 `
 
@@ -75,4 +74,34 @@ func (q *Queries) SaveEvent(ctx context.Context, arg SaveEventParams) (int64, er
 	var id int64
 	err := row.Scan(&id)
 	return id, err
+}
+
+const SaveResults = `-- name: SaveResults :exec
+INSERT INTO results (competitor_id, event_id, position, mark, medal_type, irm)
+VALUES (?, ?, ?, ?, ?, ?)
+ON CONFLICT (competitor_id, event_id) DO UPDATE SET position   = excluded.position,
+                                                    mark       = excluded.mark,
+                                                    medal_type = excluded.medal_type,
+                                                    irm        = excluded.irm
+`
+
+type SaveResultsParams struct {
+	CompetitorID int64       `db:"competitor_id"`
+	EventID      int64       `db:"event_id"`
+	Position     interface{} `db:"position"`
+	Mark         interface{} `db:"mark"`
+	MedalType    interface{} `db:"medal_type"`
+	Irm          string      `db:"irm"`
+}
+
+func (q *Queries) SaveResults(ctx context.Context, arg SaveResultsParams) error {
+	_, err := q.db.ExecContext(ctx, SaveResults,
+		arg.CompetitorID,
+		arg.EventID,
+		arg.Position,
+		arg.Mark,
+		arg.MedalType,
+		arg.Irm,
+	)
+	return err
 }

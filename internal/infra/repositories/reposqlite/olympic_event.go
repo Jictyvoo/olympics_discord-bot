@@ -44,7 +44,7 @@ func (r RepoSQLite) SaveEvent(
 		return err
 	}
 
-	_, insertErr := dbQuery.SaveEvent(
+	eventID, insertErr := dbQuery.SaveEvent(
 		ctx, dbgen.SaveEventParams{
 			EventName:    event.EventName,
 			DisciplineID: int64(disciplineID),
@@ -56,11 +56,33 @@ func (r RepoSQLite) SaveEvent(
 		},
 	)
 
-	if insertErr != nil {
+	if insertErr != nil || eventID == 0 {
 		return insertErr
 	}
 
 	// Create a result table row with competitors+event
+	tx, txErr := r.conn.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+	if txErr != nil {
+		return txErr
+	}
+	defer tx.Rollback()
 
-	return nil
+	dbQuery = dbQuery.WithTx(tx)
+	for _, competitorID := range competitorIDs {
+		err = dbQuery.SaveResults(
+			ctx, dbgen.SaveResultsParams{
+				CompetitorID: int64(competitorID),
+				EventID:      eventID,
+				Position:     nil,
+				Mark:         nil,
+				MedalType:    nil,
+				Irm:          "",
+			},
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
 }
