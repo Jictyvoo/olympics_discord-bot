@@ -1,7 +1,7 @@
 -- name: SaveCompetitor :one
-INSERT OR
-REPLACE INTO competitors (code, name, country_id)
+INSERT INTO competitors (code, name, country_id)
 VALUES (?, ?, ?)
+ON CONFLICT (code, name, country_id) DO NOTHING
 RETURNING id;
 
 
@@ -17,10 +17,12 @@ WHERE ci.iso_code_len2 = ?
    OR ci.iso_code_len3 = ?;
 
 
--- name: GetCompetitorByName :one
+-- name: GetCompetitor :one
 SELECT c.id,
        c.code,
        c.name,
        c.country_id
 FROM competitors c
-WHERE c.id = ?;
+WHERE c.code = ?
+  AND c.name = ?
+  AND c.country_id = ?;

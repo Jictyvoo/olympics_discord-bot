@@ -1,6 +1,9 @@
 package reposqlite
 
 import (
+	"database/sql"
+	"errors"
+
 	"github.com/jictyvoo/olympics_data_fetcher/internal/entities"
 	"github.com/jictyvoo/olympics_data_fetcher/internal/infra/repositories/reposqlite/internal/dbgen"
 )
@@ -18,7 +21,21 @@ func (r RepoSQLite) SaveCompetitor(
 	if err != nil {
 		return 0, err
 	}
-	id, insertErr := dbQuery.SaveCompetitor(
+
+	var id int64
+	// Try to find competitor
+	foundCompetitor, foundErr := dbQuery.GetCompetitor(
+		ctx, dbgen.GetCompetitorParams{
+			Code:      competitor.Code,
+			Name:      competitor.Name,
+			CountryID: int64(countryID),
+		},
+	)
+	if !errors.Is(foundErr, sql.ErrNoRows) || foundCompetitor.ID > 0 {
+		return entities.Identifier(foundCompetitor.ID), foundErr
+	}
+
+	id, err = dbQuery.SaveCompetitor(
 		ctx, dbgen.SaveCompetitorParams{
 			Code:      competitor.Code,
 			Name:      competitor.Name,
@@ -26,10 +43,6 @@ func (r RepoSQLite) SaveCompetitor(
 		},
 	)
 
-	if insertErr != nil {
-		return 0, insertErr
-	}
-
 	insertedID := entities.Identifier(id)
-	return insertedID, nil
+	return insertedID, err
 }

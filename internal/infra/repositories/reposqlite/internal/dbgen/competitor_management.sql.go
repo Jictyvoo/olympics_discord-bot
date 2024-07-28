@@ -9,6 +9,42 @@ import (
 	"context"
 )
 
+const GetCompetitor = `-- name: GetCompetitor :one
+SELECT c.id,
+       c.code,
+       c.name,
+       c.country_id
+FROM competitors c
+WHERE c.code = ?
+  AND c.name = ?
+  AND c.country_id = ?
+`
+
+type GetCompetitorParams struct {
+	Code      string `db:"code"`
+	Name      string `db:"name"`
+	CountryID int64  `db:"country_id"`
+}
+
+type GetCompetitorRow struct {
+	ID        int64  `db:"id"`
+	Code      string `db:"code"`
+	Name      string `db:"name"`
+	CountryID int64  `db:"country_id"`
+}
+
+func (q *Queries) GetCompetitor(ctx context.Context, arg GetCompetitorParams) (GetCompetitorRow, error) {
+	row := q.db.QueryRowContext(ctx, GetCompetitor, arg.Code, arg.Name, arg.CountryID)
+	var i GetCompetitorRow
+	err := row.Scan(
+		&i.ID,
+		&i.Code,
+		&i.Name,
+		&i.CountryID,
+	)
+	return i, err
+}
+
 const GetCompetitorByCountry = `-- name: GetCompetitorByCountry :many
 SELECT c.id,
        c.code,
@@ -61,38 +97,10 @@ func (q *Queries) GetCompetitorByCountry(ctx context.Context, arg GetCompetitorB
 	return items, nil
 }
 
-const GetCompetitorByName = `-- name: GetCompetitorByName :one
-SELECT c.id,
-       c.code,
-       c.name,
-       c.country_id
-FROM competitors c
-WHERE c.id = ?
-`
-
-type GetCompetitorByNameRow struct {
-	ID        int64  `db:"id"`
-	Code      string `db:"code"`
-	Name      string `db:"name"`
-	CountryID int64  `db:"country_id"`
-}
-
-func (q *Queries) GetCompetitorByName(ctx context.Context, id int64) (GetCompetitorByNameRow, error) {
-	row := q.db.QueryRowContext(ctx, GetCompetitorByName, id)
-	var i GetCompetitorByNameRow
-	err := row.Scan(
-		&i.ID,
-		&i.Code,
-		&i.Name,
-		&i.CountryID,
-	)
-	return i, err
-}
-
 const SaveCompetitor = `-- name: SaveCompetitor :one
-INSERT OR
-REPLACE INTO competitors (code, name, country_id)
+INSERT INTO competitors (code, name, country_id)
 VALUES (?, ?, ?)
+ON CONFLICT (code, name, country_id) DO NOTHING
 RETURNING id
 `
 
