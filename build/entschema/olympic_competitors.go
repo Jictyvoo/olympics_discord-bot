@@ -28,6 +28,7 @@ func (Competitors) Indexes() []ent.Index {
 		index.Fields("country_id"),
 		index.Fields("code"),
 		index.Fields("name", "code").Unique(),
+		index.Fields("country_id", "name", "code").Unique(),
 	}
 }
 
