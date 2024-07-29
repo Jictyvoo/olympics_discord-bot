@@ -8,11 +8,26 @@ type OlympicsAPIResponseCompetitors struct {
 	Name    string `json:"name"`
 	Order   int    `json:"order"`
 	Results struct {
-		Position  string `json:"position"`
-		Mark      string `json:"mark"`
-		MedalType string `json:"medalType"`
-		Irm       string `json:"irm"`
+		Position       string     `json:"position"`
+		Mark           string     `json:"mark"`
+		DetailedMark   [][]string `json:"detailedMark,omitempty"`
+		WinnerLoserTie string     `json:"winnerLoserTie,omitempty"`
+		MedalType      string     `json:"medalType"`
+		Irm            string     `json:"irm"`
+		Penalty        string     `json:"penalty,omitempty"`
 	} `json:"results,omitempty"`
+}
+
+type OlympicsAPIResponseGroup struct {
+	IsLive      bool      `json:"isLive"`
+	Id          string    `json:"id"`
+	StartDate   time.Time `json:"startDate"`
+	HasMedals   bool      `json:"hasMedals"`
+	HasWarnings bool      `json:"hasWarnings"`
+	Title       string    `json:"title"`
+	SubTitle    string    `json:"subTitle"`
+	UnitsCount  int       `json:"unitsCount"`
+	Type        string    `json:"type"`
 }
 
 type (
@@ -50,14 +65,16 @@ type (
 		ScheduleItemType    string                           `json:"scheduleItemType"`
 		UnitNum             string                           `json:"unitNum"`
 		SessionCode         string                           `json:"sessionCode"`
+		GroupId             string                           `json:"groupId,omitempty"`
 		Competitors         []OlympicsAPIResponseCompetitors `json:"competitors"`
+		ResCode             string                           `json:"resCode,omitempty"`
+		Round               string                           `json:"round,omitempty"`
 		ExtraData           struct {
 			DetailUrl string `json:"detailUrl"`
 		} `json:"extraData"`
-		GroupId string `json:"groupId,omitempty"`
 	}
 	OlympicsAPIResponse struct {
-		Units  []OlympicsAPIResponseUnit `json:"units"`
-		Groups []any                     `json:"groups"`
+		Units  []OlympicsAPIResponseUnit  `json:"units"`
+		Groups []OlympicsAPIResponseGroup `json:"groups"`
 	}
 )

@@ -2,6 +2,7 @@ package repolympicfetch
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 
@@ -11,11 +12,15 @@ import (
 )
 
 type OlympicsFetcherImpl struct {
-	ds dsrest.RESTDataSource
+	ds   dsrest.RESTDataSource
+	lang entities.Language
 }
 
-func NewOlympicsFetcher(ds dsrest.RESTDataSource) usecases.OlympicsFetcher {
-	return OlympicsFetcherImpl{ds: ds}
+func NewOlympicsFetcher(
+	apiLocale entities.Language,
+	ds dsrest.RESTDataSource,
+) usecases.OlympicsFetcher {
+	return OlympicsFetcherImpl{lang: apiLocale, ds: ds}
 }
 
 func (repo OlympicsFetcherImpl) parseAPICompetitors(
@@ -68,8 +73,8 @@ func (repo OlympicsFetcherImpl) parseAPIResp(response OlympicsAPIResponse) []ent
 }
 
 func (repo OlympicsFetcherImpl) FetchDataFromDay(day time.Time) ([]entities.OlympicEvent, error) {
-	const apiURL = "https://sph-s-api.olympics.com/summer/schedules/api/ENG/schedule/day/"
-	url := apiURL + day.Format(time.DateOnly)
+	const apiURL = "https://sph-s-api.olympics.com/summer/schedules/api/%s/schedule/day/%s"
+	url := fmt.Sprintf(apiURL, repo.lang.Code, day.Format(time.DateOnly))
 
 	resp, err := repo.ds.Get(url)
 	if err != nil {
@@ -84,8 +89,8 @@ func (repo OlympicsFetcherImpl) FetchDataFromDay(day time.Time) ([]entities.Olym
 }
 
 func (repo OlympicsFetcherImpl) FetchWarchOn() ([]string, error) {
-	const apiURL = "https://sph-i-api.olympics.com/summer/info/api/ENG/mrh"
-	resp, err := repo.ds.Get(apiURL)
+	const apiURL = "https://sph-i-api.olympics.com/summer/info/api/%s/mrh"
+	resp, err := repo.ds.Get(fmt.Sprintf(apiURL, repo.lang.Code))
 	if err != nil {
 		return nil, err
 	}
@@ -102,4 +107,56 @@ func (repo OlympicsFetcherImpl) FetchWarchOn() ([]string, error) {
 	}
 
 	return urls, nil
+}
+
+func (repo OlympicsFetcherImpl) FetchDisciplines() ([]entities.Discipline, error) {
+	const apiURL = "https://sph-i-api.olympics.com/summer/info/api/%s/disciplines"
+	resp, err := repo.ds.Get(fmt.Sprintf(apiURL, repo.lang.Code))
+	if err != nil {
+		return nil, err
+	}
+
+	decoder := json.NewDecoder(resp.Body)
+	var jsonResp []DisciplineResp
+	err = decoder.Decode(&jsonResp)
+
+	resultDisciplines := make([]entities.Discipline, 0, len(jsonResp))
+	for _, item := range jsonResp {
+		discipline := entities.Discipline{
+			Code:         item.Code,
+			Name:         item.Description,
+			Description:  item.Description,
+			IsSport:      item.IsSport,
+			IsParalympic: item.IsParalympic,
+		}
+		resultDisciplines = append(resultDisciplines, discipline)
+	}
+
+	return resultDisciplines, nil
+}
+
+func (repo OlympicsFetcherImpl) FetchCompetitionDays() ([]time.Time, error) {
+	const apiURL = "https://sph-s-api.olympics.com/summer/schedules/api/%s/competitiondays"
+	resp, err := repo.ds.Get(fmt.Sprintf(apiURL, repo.lang.Code))
+	if err != nil {
+		return nil, err
+	}
+
+	decoder := json.NewDecoder(resp.Body)
+	var jsonResp struct {
+		Days []struct {
+			Id   string `json:"id"`
+			Name string `json:"name"`
+		} `json:"days"`
+	}
+	err = decoder.Decode(&jsonResp)
+
+	days := make([]time.Time, 0, len(jsonResp.Days))
+	for _, item := range jsonResp.Days {
+		if parsed, parsErr := time.Parse(time.DateOnly, item.Id); parsErr == nil {
+			days = append(days, parsed)
+		}
+	}
+
+	return days, nil
 }

@@ -32,7 +32,7 @@ func RegisterRepositories(inj remy.Injector) {
 	remy.RegisterConstructorArgs1(
 		inj, remy.Factory[services.EventLoader], constructRepoSQLITE[services.EventLoader],
 	)
-	remy.RegisterConstructorArgs1(
+	remy.RegisterConstructorArgs2(
 		inj, remy.Factory[usecases.OlympicsFetcher], repolympicfetch.NewOlympicsFetcher,
 	)
 }
