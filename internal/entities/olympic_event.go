@@ -38,10 +38,11 @@ type Identifier uint64
 
 type OlympicCompetitors struct {
 	ID          Identifier
-	Code        string
-	CountryCode string
 	Name        string
-	CountryInfo CountryInfo
+	Code        string
+	Age         uint8
+	CountryCode string
+	Country     CountryInfo
 }
 
 type OlympicEvent struct {

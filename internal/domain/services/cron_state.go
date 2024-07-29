@@ -11,7 +11,7 @@ import (
 )
 
 type (
-	eventObserver interface {
+	EventObserver interface {
 		OnEvent(event entities.OlympicEvent)
 	}
 	jobContext struct {
@@ -23,7 +23,7 @@ type (
 	cronState struct {
 		cronScheduler       gocron.Scheduler
 		jobIDs              map[string]jobContext
-		registeredObservers []eventObserver
+		registeredObservers []EventObserver
 		mutex               sync.Mutex
 	}
 )
@@ -41,7 +41,7 @@ func (cs *cronState) registerJobInfo(key string, jCtx jobContext) {
 	cs.jobIDs[key] = jCtx
 }
 
-func (cs *cronState) RegisterObserver(observer eventObserver) {
+func (cs *cronState) RegisterObserver(observer EventObserver) {
 	cs.mutex.Lock()
 	defer cs.mutex.Unlock()
 

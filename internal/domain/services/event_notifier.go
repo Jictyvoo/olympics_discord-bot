@@ -18,8 +18,9 @@ type (
 		LoadDayEvents(now time.Time) ([]entities.OlympicEvent, error)
 		// LoadCompetitorsFromEvent(event entities.OlympicEvent) ([]entities.OlympicCompetitors, error)
 	}
+	CancelChannel chan struct{}
 	EventNotifier struct {
-		cancelChan     chan struct{}
+		cancelChan     CancelChannel
 		cacheDuration  time.Duration
 		fetcherUseCase usecases.FetcherCacheUseCase
 		repo           EventLoader
@@ -29,12 +30,13 @@ type (
 )
 
 func NewEventNotifier(
-	cancelChan chan struct{}, cacheDuration time.Duration,
-	fetcherUseCase usecases.FetcherCacheUseCase,
+	cancelChan CancelChannel, cacheDuration time.Duration,
+	repo EventLoader, fetcherUseCase usecases.FetcherCacheUseCase,
 ) (en *EventNotifier, err error) {
 	en = &EventNotifier{
 		cancelChan:     cancelChan,
 		cacheDuration:  cacheDuration,
+		repo:           repo,
 		fetcherUseCase: fetcherUseCase,
 	}
 	en.cronScheduler, err = gocron.NewScheduler()
@@ -71,12 +73,20 @@ func (en *EventNotifier) fetcherThread() {
 	}
 }
 
-func (en *EventNotifier) Start() error {
+func (en *EventNotifier) Start() {
+	en.cronScheduler.Start()
+}
+
+func (en *EventNotifier) MainLoop() error {
 	go en.fetcherThread()
 
 	ticker := time.NewTicker(en.cacheDuration << 1)
 	defer ticker.Stop()
 
+	// Do a first check before running the timer
+	if err := en.checkUpdateJobs(); err != nil {
+		return err
+	}
 	for range ticker.C {
 		if err := en.checkUpdateJobs(); err != nil {
 			return err
@@ -104,15 +114,20 @@ func (en *EventNotifier) manageEventJob(event entities.OlympicEvent) (err error)
 		}
 	}
 
-	if shouldInsertNew {
+	startTime := event.StartAt.Add(-20 * time.Minute)
+	now := time.Now()
+	if shouldInsertNew && event.EndAt.After(now) {
+		if startTime.Before(now) {
+			startTime = now.Add(10 * time.Second)
+		}
 		newJob, insertErr := en.cronScheduler.NewJob(
 			gocron.OneTimeJob(
-				gocron.OneTimeJobStartDateTime(event.StartAt),
+				gocron.OneTimeJobStartDateTime(startTime),
 			),
 			gocron.NewTask(en.cronState.taskExecution, event),
-			gocron.WithStopAt(gocron.WithStopDateTime(event.EndAt)),
+			// gocron.WithStopAt(gocron.WithStopDateTime(event.EndAt)),
 			gocron.WithLimitedRuns(1),
-			gocron.WithSingletonMode(gocron.LimitModeWait),
+			gocron.WithSingletonMode(gocron.LimitModeReschedule),
 		)
 
 		if insertErr != nil {
