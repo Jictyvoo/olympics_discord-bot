@@ -27,3 +27,19 @@ ON CONFLICT (competitor_id, event_id) DO UPDATE SET position   = excluded.positi
                                                     mark       = excluded.mark,
                                                     medal_type = excluded.medal_type,
                                                     irm        = excluded.irm;
+
+-- name: LoadDayEvents :many
+SELECT e.id                     as event_id,
+       e.event_name,
+       od.name                  as discipline_name,
+       e.phase,
+       e.gender,
+       CAST(e.start_at AS TEXT) as start_at,
+       CAST(e.end_at AS TEXT)   as end_at,
+       e.status
+FROM olympic_events e
+         INNER JOIN
+     olympic_disciplines od on e.discipline_id = od.id
+WHERE e.start_at >= ?
+  AND e.end_at <= ?
+ORDER BY e.start_at;

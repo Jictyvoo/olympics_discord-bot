@@ -20,7 +20,7 @@ func (r RepoSQLite) insertCountryCtx(
 		},
 	)
 
-	if !errors.Is(err, sql.ErrNoRows) || foundCountry.ID > 0 {
+	if (err != nil && !errors.Is(err, sql.ErrNoRows)) || foundCountry.ID > 0 {
 		countryID = entities.Identifier(foundCountry.ID)
 		if err != nil {
 			return

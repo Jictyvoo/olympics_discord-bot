@@ -97,6 +97,62 @@ func (q *Queries) GetCompetitorByCountry(ctx context.Context, arg GetCompetitorB
 	return items, nil
 }
 
+const GetEventCompetitors = `-- name: GetEventCompetitors :many
+SELECT c.name,
+       c.code,
+       ci.name AS country_name,
+       ci.code AS country_code,
+       ci.ioc_code,
+       ci.iso_code_len2,
+       ci.iso_code_len3
+FROM competitors c
+         INNER JOIN
+     results r ON c.id = r.competitor_id
+         INNER JOIN main.country_infos ci on ci.id = c.country_id
+WHERE r.event_id = ?
+`
+
+type GetEventCompetitorsRow struct {
+	Name        string      `db:"name"`
+	Code        string      `db:"code"`
+	CountryName string      `db:"country_name"`
+	CountryCode string      `db:"country_code"`
+	IocCode     string      `db:"ioc_code"`
+	IsoCodeLen2 interface{} `db:"iso_code_len2"`
+	IsoCodeLen3 string      `db:"iso_code_len3"`
+}
+
+func (q *Queries) GetEventCompetitors(ctx context.Context, eventID int64) ([]GetEventCompetitorsRow, error) {
+	rows, err := q.db.QueryContext(ctx, GetEventCompetitors, eventID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetEventCompetitorsRow{}
+	for rows.Next() {
+		var i GetEventCompetitorsRow
+		if err := rows.Scan(
+			&i.Name,
+			&i.Code,
+			&i.CountryName,
+			&i.CountryCode,
+			&i.IocCode,
+			&i.IsoCodeLen2,
+			&i.IsoCodeLen3,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const SaveCompetitor = `-- name: SaveCompetitor :one
 INSERT INTO competitors (code, name, country_id)
 VALUES (?, ?, ?)

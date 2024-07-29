@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
 
 	"github.com/jictyvoo/olympics_data_fetcher/internal/entities"
 	"github.com/jictyvoo/olympics_data_fetcher/internal/infra/repositories/reposqlite/internal/dbgen"
@@ -15,7 +16,7 @@ func (r RepoSQLite) upsertDiscipline(
 	var foundID int64
 
 	foundID, err = dbQuery.GetDisciplineIDByName(ctx, name)
-	if foundID > 0 || !errors.Is(sql.ErrNoRows, err) {
+	if foundID > 0 || (err != nil && !errors.Is(sql.ErrNoRows, err)) {
 		return entities.Identifier(foundID), nil
 	}
 
@@ -85,4 +86,49 @@ func (r RepoSQLite) SaveEvent(
 	}
 
 	return tx.Commit()
+}
+
+func (r RepoSQLite) LoadDayEvents(from time.Time) ([]entities.OlympicEvent, error) {
+	ctx, cancel := r.Ctx()
+	defer cancel()
+
+	dbQuery := r.queries
+	foundEvents, err := dbQuery.LoadDayEvents(
+		ctx, dbgen.LoadDayEventsParams{
+			StartAt: from,
+			EndAt: time.Date(from.Year(), from.Month(), from.Day(), 0, 0, 0, 0, time.UTC).
+				Add(24 * time.Hour),
+		},
+	)
+
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+
+	eventList := make([]entities.OlympicEvent, len(foundEvents))
+	for index, foundEvent := range foundEvents {
+		competitors, searchErr := r.loadEventCompetitorsCtx(
+			ctx, dbQuery,
+			entities.Identifier(foundEvent.EventID),
+		)
+		if searchErr != nil {
+			return nil, searchErr
+		}
+
+		eventList[index] = entities.OlympicEvent{
+			ID:             entities.Identifier(foundEvent.EventID),
+			EventName:      foundEvent.EventName,
+			DisciplineName: foundEvent.DisciplineName,
+			Phase:          foundEvent.Phase,
+			Gender:         entities.Gender(foundEvent.Gender),
+			Status:         entities.EventStatus(foundEvent.Status),
+			Competitors:    competitors,
+		}
+
+		const layout = "2006-01-02 15:04:05 -0700 -0700"
+		eventList[index].StartAt, _ = time.Parse(layout, foundEvent.StartAt)
+		eventList[index].EndAt, _ = time.Parse(layout, foundEvent.EndAt)
+	}
+
+	return eventList, nil
 }

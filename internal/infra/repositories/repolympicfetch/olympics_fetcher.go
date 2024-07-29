@@ -26,7 +26,7 @@ func (repo OlympicsFetcherImpl) parseAPICompetitors(
 		newCompetitor := entities.OlympicCompetitors{
 			Code:        competitor.Code,
 			CountryCode: competitor.Noc,
-			CountryInfo: entities.GetCountryByCode(competitor.Noc),
+			Country:     entities.GetCountryByCode(competitor.Noc),
 			Name:        competitor.Name,
 		}
 
