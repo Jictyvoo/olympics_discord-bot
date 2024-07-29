@@ -1,13 +1,11 @@
 package config
 
-import "strconv"
-
 const DefaultFileName = "conf.toml"
 
 type (
-	Server struct {
-		Host string `toml:"address"`
-		Port uint16 `toml:"port"`
+	Runtime struct {
+		WatchCountries []string `toml:"watch_countries"`
+		APILocale      string   `toml:"api_locale"`
 	}
 
 	Discord struct {
@@ -18,11 +16,7 @@ type (
 	Config struct {
 		IsDebug     bool    `toml:"is_debug"`
 		ProjectName string  `toml:"project_name"`
-		Server      Server  `toml:"server"`
+		Runtime     Runtime `toml:"server"`
 		Discord     Discord `toml:"discord"`
 	}
 )
-
-func (conf Server) Address() string {
-	return conf.Host + ":" + strconv.Itoa(int(conf.Port))
-}

@@ -7,10 +7,12 @@ import (
 
 const (
 	envUseDebug        = "DEBUG"
-	envAPIPort         = "API_PORT"
 	envProjectName     = "PROJECT_NAME"
 	envDiscordToken    = "DISCORD_TOKEN"
 	envDiscordClientID = "DISCORD_CLIENT_ID"
+
+	envWatchCountries = "WATCH_COUNTRIES"
+	envAPILocale      = "API_LOCALE"
 )
 
 type EnvLoader struct{}

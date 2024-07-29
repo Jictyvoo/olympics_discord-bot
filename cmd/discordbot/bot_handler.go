@@ -9,7 +9,7 @@ import (
 	"github.com/jictyvoo/olympics_data_fetcher/internal/infra/facades/discfac"
 )
 
-const channelName = "olympics_PARIS-2024"
+const channelName = "🏅olympics_PARIS-2024"
 
 type OlympicsBot struct {
 	evtNotifier *services.EventNotifier

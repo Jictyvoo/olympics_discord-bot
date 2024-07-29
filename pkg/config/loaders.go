@@ -19,10 +19,6 @@ func DefaultConfig() Config {
 	return Config{
 		IsDebug:     false,
 		ProjectName: "olympics_PARIS--2024",
-		Server: Server{
-			Host: "0.0.0.0",
-			Port: 8008,
-		},
 	}
 }
 
@@ -36,7 +32,16 @@ func LoadConfigFromLoader(config *Config, loader Loader) {
 
 	LoadDiscord(&config.Discord, loader)
 	loader.GetString(&config.ProjectName, envProjectName)
-	loader.GetUint16(&config.Server.Port, envAPIPort)
+	loader.GetString(&config.Runtime.APILocale, envAPILocale)
+
+	var countries string
+	if loader.GetString(&countries, envWatchCountries); countries != "" {
+		config.Runtime.WatchCountries = strings.Split(countries, ",")
+		for index, country := range config.Runtime.WatchCountries {
+			// Ensure that has no space on the name
+			config.Runtime.WatchCountries[index] = strings.TrimSpace(country)
+		}
+	}
 }
 
 func LoadDiscord(conf *Discord, loader Loader) {
