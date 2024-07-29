@@ -11,4 +11,5 @@ func DoInjections(inj remy.Injector) {
 	remy.RegisterInstance(inj, ".rest_cache", "cacheDirectory")
 	infra.RegisterInfraServices(inj)
 	domain.RegisterUCs(inj)
+	domain.RegisterServices(inj)
 }
