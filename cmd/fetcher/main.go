@@ -1,32 +1,23 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
 	"log/slog"
-	"os"
 	"time"
 
-	"github.com/jictyvoo/olympics_data_fetcher/internal/domain"
-	"github.com/jictyvoo/olympics_data_fetcher/internal/domain/usecases"
-	"github.com/jictyvoo/olympics_data_fetcher/internal/infra"
-
 	"github.com/wrapped-owls/goremy-di/remy"
+
+	"github.com/jictyvoo/olympics_data_fetcher/internal/bootstrap"
+	"github.com/jictyvoo/olympics_data_fetcher/internal/domain/usecases"
 )
 
 func main() {
-	db, dbErr := sql.Open("sqlite", "olympics-2024_PARIS.db")
-	if dbErr != nil {
-		slog.Error("failed to open database", slog.String("error", dbErr.Error()))
-		os.Exit(1)
-	}
+	db := bootstrap.OpenDatabase()
 	defer db.Close()
 
 	inj := remy.NewInjector(remy.Config{})
-	remy.RegisterInstance(inj, ".rest_cache", "cacheDirectory")
 	remy.RegisterInstance(inj, db)
-	infra.RegisterInfraServices(inj)
-	domain.RegisterUCs(inj)
+	bootstrap.DoInjections(inj)
 
 	/*repo := remy.Get[usecases.AccessDatabaseRepository](inj)
 	if _, err := repo.InsertCountries(entities.GetCountryList()); err != nil {
