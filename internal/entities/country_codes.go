@@ -2,6 +2,7 @@ package entities
 
 import (
 	_ "embed"
+	"strings"
 )
 
 /*
@@ -41,6 +42,10 @@ type CountryInfo struct {
 	Population uint64
 	AreaKm2    float64
 	GDPUSD     string
+}
+
+func (c CountryInfo) EmojiFlag() string {
+	return "flag_" + strings.ToLower(c.ISOCode[0])
 }
 
 func GetCountryByCode(countryCode string) CountryInfo {
