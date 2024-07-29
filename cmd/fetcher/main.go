@@ -12,12 +12,13 @@ import (
 )
 
 func main() {
+	conf := bootstrap.Config()
 	db := bootstrap.OpenDatabase()
 	defer db.Close()
 
 	inj := remy.NewInjector(remy.Config{})
 	remy.RegisterInstance(inj, db)
-	bootstrap.DoInjections(inj)
+	bootstrap.DoInjections(inj, conf.Runtime.APILocale)
 
 	/*repo := remy.Get[usecases.AccessDatabaseRepository](inj)
 	if _, err := repo.InsertCountries(entities.GetCountryList()); err != nil {

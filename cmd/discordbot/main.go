@@ -10,27 +10,16 @@ import (
 
 	"github.com/jictyvoo/olympics_data_fetcher/internal/bootstrap"
 	"github.com/jictyvoo/olympics_data_fetcher/internal/domain/services"
-	"github.com/jictyvoo/olympics_data_fetcher/pkg/config"
 )
 
 func main() {
-	conf, confErr := config.LoadTOML(config.DefaultFileName)
-	if confErr != nil {
-		slog.Error(
-			"Error loading config file",
-			slog.String("file", config.DefaultFileName),
-			slog.String("error", confErr.Error()),
-		)
-		os.Exit(1)
-	}
-
-	config.LoadConfigFromLoader(&conf, config.EnvLoader{})
+	conf := bootstrap.Config()
 	db := bootstrap.OpenDatabase()
 	defer db.Close()
 
 	inj := remy.NewInjector(remy.Config{DuckTypeElements: true})
 	remy.RegisterInstance(inj, db)
-	bootstrap.DoInjections(inj)
+	bootstrap.DoInjections(inj, conf.Runtime.APILocale)
 
 	fmt.Println(generateInviteLink(conf.Discord.ClientID))
 	discClient, err := discordgo.New("Bot " + conf.Discord.Token)
