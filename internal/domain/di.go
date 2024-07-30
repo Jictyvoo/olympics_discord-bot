@@ -18,7 +18,7 @@ func RegisterUCs(inj remy.Injector) {
 }
 
 func RegisterServices(inj remy.Injector) {
-	remy.RegisterConstructorArgs1Err(
+	remy.RegisterConstructorArgs2Err(
 		inj, remy.Factory[services.EventObserver],
 		services.NewOlympicEventManager,
 	)

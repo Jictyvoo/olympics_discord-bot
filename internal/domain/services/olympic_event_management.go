@@ -18,22 +18,23 @@ type (
 )
 
 type OlympicEventManager struct {
-	notifier    NotifierFacade
-	msgTemplate *template.Template
+	notifier       NotifierFacade
+	msgTemplate    *template.Template
+	watchCountries []string
 }
 
 func discRelativeHour(timestamp time.Time) string {
 	return fmt.Sprintf("<t:%d:R>", timestamp.Unix())
 }
 
-func NewOlympicEventManager(facade NotifierFacade) (EventObserver, error) {
+func NewOlympicEventManager(watchCountries []string, facade NotifierFacade) (EventObserver, error) {
 	const tmpl = `
-🏅 **Event:** {{.EventName}}
+# 🤾 {{.EventName}}
 **Discipline:** {{.DisciplineName}}
 **Phase:** {{.Phase}}
 **Gender:** {{.Gender}}
-**Starts at:** {{discRelativeHour .StartAt}}
-**Ends at:** {{discRelativeHour .EndAt}}
+**Start:** {{discRelativeHour .StartAt}}
+**End:** {{discRelativeHour .EndAt}}
 **Status:** {{.Status}}
 **Competitors:**
 {{range .Competitors}}- :{{emojiFlag .Country}}: {{.Name}}, Age: {{.Age}}
@@ -48,10 +49,35 @@ func NewOlympicEventManager(facade NotifierFacade) (EventObserver, error) {
 	if err != nil {
 		return OlympicEventManager{}, err
 	}
-	return OlympicEventManager{notifier: facade, msgTemplate: t}, nil
+	return OlympicEventManager{
+		notifier:       facade,
+		watchCountries: watchCountries,
+		msgTemplate:    t,
+	}, nil
+}
+
+func (oen OlympicEventManager) ShouldNotify(event entities.OlympicEvent) bool {
+	if len(oen.watchCountries) <= 0 {
+		return true
+	}
+
+	for _, competitors := range event.Competitors {
+		for _, watch := range oen.watchCountries {
+			if competitors.Country.IsThis(watch) {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func (oen OlympicEventManager) OnEvent(event entities.OlympicEvent) {
+	// Check if it should notify the event
+	if !oen.ShouldNotify(event) {
+		return
+	}
+
 	// Create the needed message structure to be sent
 	var buf bytes.Buffer
 	err := oen.msgTemplate.Execute(&buf, event)

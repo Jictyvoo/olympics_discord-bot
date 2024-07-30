@@ -12,14 +12,16 @@ import (
 const channelName = "🏅olympics_PARIS-2024"
 
 type OlympicsBot struct {
-	evtNotifier *services.EventNotifier
-	guildIDs    map[string]services.NotifierFacade
+	evtNotifier    *services.EventNotifier
+	watchCountries []string
+	guildIDs       map[string]services.NotifierFacade
 }
 
-func NewOlympicsBot(evtNotifier *services.EventNotifier) *OlympicsBot {
+func NewOlympicsBot(evtNotifier *services.EventNotifier, watchCountries []string) *OlympicsBot {
 	return &OlympicsBot{
-		evtNotifier: evtNotifier,
-		guildIDs:    make(map[string]services.NotifierFacade, 11),
+		evtNotifier:    evtNotifier,
+		watchCountries: watchCountries,
+		guildIDs:       make(map[string]services.NotifierFacade, 11),
 	}
 }
 
@@ -38,7 +40,7 @@ func (bot *OlympicsBot) ReadyHandler(s *discordgo.Session, r *discordgo.Ready) {
 		}
 		bot.guildIDs[guild.ID] = discFacade
 
-		eventManager, err := services.NewOlympicEventManager(discFacade)
+		eventManager, err := services.NewOlympicEventManager(bot.watchCountries, discFacade)
 		if err != nil {
 			slog.Error(
 				"Error initializing event manager",

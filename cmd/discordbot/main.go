@@ -19,7 +19,7 @@ func main() {
 
 	inj := remy.NewInjector(remy.Config{DuckTypeElements: true})
 	remy.RegisterInstance(inj, db)
-	bootstrap.DoInjections(inj, conf.Runtime.APILocale)
+	bootstrap.DoInjections(inj, conf)
 
 	fmt.Println(generateInviteLink(conf.Discord.ClientID))
 	discClient, err := discordgo.New("Bot " + conf.Discord.Token)
@@ -45,7 +45,7 @@ func main() {
 		)
 		return
 	}
-	bot := NewOlympicsBot(notifierServ)
+	bot := NewOlympicsBot(notifierServ, conf.Runtime.WatchCountries)
 	discClient.AddHandler(bot.ReadyHandler)
 	discClient.Identify.Intents = discordgo.MakeIntent(
 		discordgo.IntentsGuildMessages | discordgo.IntentsMessageContent,

@@ -18,7 +18,7 @@ func main() {
 
 	inj := remy.NewInjector(remy.Config{})
 	remy.RegisterInstance(inj, db)
-	bootstrap.DoInjections(inj, conf.Runtime.APILocale)
+	bootstrap.DoInjections(inj, conf)
 
 	/*repo := remy.Get[usecases.AccessDatabaseRepository](inj)
 	if _, err := repo.InsertCountries(entities.GetCountryList()); err != nil {
