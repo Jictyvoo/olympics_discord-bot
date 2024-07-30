@@ -1,7 +1,11 @@
 package entities
 
 import (
+	"bytes"
 	"crypto/sha256"
+	"encoding/gob"
+	"fmt"
+	"hash/fnv"
 	"strconv"
 	"time"
 )
@@ -62,13 +66,36 @@ type OlympicEvent struct {
 	Competitors    []OlympicCompetitors
 }
 
-func (oe OlympicEvent) SHAIdentifier() string {
-	hasher := sha256.New()
-	hasher.Write([]byte(oe.DisciplineName))
-	hasher.Write([]byte(strconv.Itoa(int(oe.Gender))))
-	hasher.Write([]byte(oe.Phase))
-	hasher.Write([]byte(oe.SessionCode))
+func (oe OlympicEvent) Hash() (string, error) {
+	h := fnv.New64a() // Create a new FNV-1a 64-bit hash instance
 
-	identifier := hasher.Sum([]byte(oe.EventName))
-	return string(identifier)
+	// Serialize POSMessageConfig into gob
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+	if err := enc.Encode(oe); err != nil {
+		return "", err
+	}
+
+	// Write the serialized bytes to the hash
+	if _, err := h.Write(buf.Bytes()); err != nil {
+		return "", err
+	}
+
+	// Return the resulting hash value as a hexadecimal string
+	return fmt.Sprintf("%x", h.Sum64()), nil
+}
+
+func (oe OlympicEvent) SHAIdentifier() string {
+	if hash, err := oe.Hash(); err == nil && len(hash) > 0 {
+		return hash
+	}
+
+	var buffer bytes.Buffer
+	buffer.Write([]byte(oe.DisciplineName))
+	buffer.Write([]byte(strconv.Itoa(int(oe.Gender))))
+	buffer.Write([]byte(oe.Phase))
+	buffer.Write([]byte(oe.SessionCode))
+
+	identifier := sha256.Sum256([]byte(oe.EventName))
+	return string(identifier[:])
 }

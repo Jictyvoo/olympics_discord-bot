@@ -16,6 +16,16 @@ func TestSHAIdentifier(t *testing.T) {
 				Gender:         1,
 				Phase:          "Final",
 				EventName:      "100m",
+				Competitors: []OlympicCompetitors{
+					{
+						ID:          10,
+						Name:        "Whoops",
+						Code:        "Daisy",
+						Age:         111,
+						CountryCode: "BRA",
+						Country:     CountryInfo{},
+					},
+				},
 			},
 		},
 		{
