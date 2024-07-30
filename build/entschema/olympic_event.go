@@ -40,6 +40,7 @@ func (OlympicEvent) Indexes() []ent.Index {
 func (OlympicEvent) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.To("results", Results.Type),
+		edge.To("notified_events", NotifiedEvent.Type),
 		edge.From("olympic_disciplines", OlympicDiscipline.Type).
 			Ref("olympic_events").
 			Field("discipline_id").
