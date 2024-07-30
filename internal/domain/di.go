@@ -40,7 +40,7 @@ func RegisterServices(inj remy.Injector) {
 				if loaderRepo, err = remy.DoGet[services.EventLoader](retriever); err != nil {
 					return nil, err
 				}
-				return services.NewEventNotifier(cancelChan, time.Hour, loaderRepo, fetcherUC)
+				return services.NewEventNotifier(cancelChan, 4*time.Minute, loaderRepo, fetcherUC)
 			},
 		),
 	)

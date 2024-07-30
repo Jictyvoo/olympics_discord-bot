@@ -46,15 +46,14 @@ func NewEventNotifier(
 	return
 }
 
-func (en *EventNotifier) fetchRemainingDays() {
+func (en *EventNotifier) fetchRemainingDays(from time.Time) {
 	en.mutex.Lock() // Prevent sqlite multi access
 	defer en.mutex.Unlock()
 
-	now := time.Now()
-	startDate := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	startDate := time.Date(from.Year(), from.Month(), from.Day(), 0, 0, 0, 0, time.UTC)
 	endDate := time.Date(2024, time.August, 12, 0, 0, 0, 0, time.UTC)
 	for date := startDate; date.Before(endDate); date = date.Add(24 * time.Hour) {
-		slog.Debug("Start to fetch again for event data", slog.Time("date", date))
+		slog.Info("Start to fetch and save data for event", slog.Time("date", date))
 		if err := en.fetcherUseCase.Run(date); err != nil {
 			slog.Error("Error fetching data from day", slog.String("error", err.Error()))
 		}
@@ -62,6 +61,8 @@ func (en *EventNotifier) fetchRemainingDays() {
 }
 
 func (en *EventNotifier) fetcherThread() {
+	// Run one time since beginning
+	en.fetchRemainingDays(time.Date(2024, time.July, 24, 0, 0, 0, 0, time.UTC))
 	ticker := time.NewTicker(en.cacheDuration)
 	for {
 		select {
@@ -69,7 +70,7 @@ func (en *EventNotifier) fetcherThread() {
 			ticker.Stop()
 			return
 		case <-ticker.C:
-			en.fetchRemainingDays()
+			en.fetchRemainingDays(time.Now())
 		}
 	}
 }
