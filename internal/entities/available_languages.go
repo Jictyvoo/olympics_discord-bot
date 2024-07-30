@@ -26,7 +26,7 @@ var languageList = [...]Language{
 func GetLanguage(idOrCode string) Language {
 	for _, lang := range languageList {
 		switch strings.ToLower(idOrCode) {
-		case lang.ID, lang.Code:
+		case lang.ID, strings.ToLower(lang.Code):
 			return lang
 		}
 	}
