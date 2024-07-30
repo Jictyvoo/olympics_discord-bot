@@ -30,6 +30,14 @@ type CountryInfo struct {
 	GdpUsd      interface{} `db:"gdp_usd"`
 }
 
+type NotifiedEvent struct {
+	ID          int64       `db:"id"`
+	EventSha256 string      `db:"event_sha256"`
+	Status      string      `db:"status"`
+	NotifiedAt  interface{} `db:"notified_at"`
+	EventID     int64       `db:"event_id"`
+}
+
 type OlympicDiscipline struct {
 	ID          int64       `db:"id"`
 	Name        string      `db:"name"`
