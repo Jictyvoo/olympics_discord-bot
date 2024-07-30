@@ -128,55 +128,73 @@ func (en *EventNotifier) taskExecution(event entities.OlympicEvent) {
 
 	// Use cron state to trigger observers
 	en.cronState.taskExecution(updatedEvent)
+
+	// Update status on database
+	newNotification := entities.Notification{
+		EventID:       event.ID,
+		Status:        entities.NotificationStatusSent,
+		EventChecksum: event.SHAIdentifier(),
+		NotifiedAt:    time.Now(),
+	}
+	err = en.repo.RegisterNotification(newNotification)
+	if err != nil {
+		slog.Error(
+			"Error registering notification",
+			slog.String("error", err.Error()),
+		)
+	}
 }
 
 func (en *EventNotifier) manageEventJob(event entities.OlympicEvent) (err error) {
-	eventKey := event.SHAIdentifier()
-	jobCtx, found := en.cronState.retrieveJobID(eventKey)
-	shouldInsertNew := true
-	if found && jobCtx.ID != uuid.Nil {
-		// Check if it has some update
-		shouldInsertNew = event.StartAt.Compare(jobCtx.startAt) == 0 &&
-			event.EndAt.Compare(jobCtx.endAt) == 0
-
-		if !shouldInsertNew {
-			err = en.cronScheduler.RemoveJob(jobCtx.ID)
-			if err != nil {
-				slog.Error("Error removing job", slog.String("error", err.Error()))
-				return err
-			}
-		}
+	notifyID, checkErr := en.shouldNotify(event)
+	if notifyID == "" || checkErr != nil {
+		return checkErr
 	}
 
-	startTime := event.StartAt.Add(-20 * time.Minute)
 	now := time.Now()
-	if shouldInsertNew && event.EndAt.After(now) {
-		if startTime.Before(now) {
-			startTime = now.Add(10 * time.Second)
-		}
-		newJob, insertErr := en.cronScheduler.NewJob(
-			gocron.OneTimeJob(
-				gocron.OneTimeJobStartDateTime(startTime),
-			),
-			gocron.NewTask(en.taskExecution, event),
-			// gocron.WithStopAt(gocron.WithStopDateTime(event.EndAt)),
-			gocron.WithLimitedRuns(1),
-			gocron.WithSingletonMode(gocron.LimitModeReschedule),
-		)
-
-		if insertErr != nil {
-			slog.Error("Error creating job", slog.String("error", insertErr.Error()))
-			return insertErr
-		}
-		en.cronState.registerJobInfo(
-			eventKey, jobContext{
-				ID:      newJob.ID(),
-				startAt: event.StartAt,
-				endAt:   event.EndAt,
-			},
-		)
+	startTime := event.StartAt.Add(-20 * time.Minute)
+	if startTime.Before(now) {
+		startTime = now.Add(10 * time.Second)
 	}
+	newJob, insertErr := en.cronScheduler.NewJob(
+		gocron.OneTimeJob(
+			gocron.OneTimeJobStartDateTime(startTime),
+		),
+		gocron.NewTask(en.taskExecution, event),
+		// gocron.WithStopAt(gocron.WithStopDateTime(event.EndAt)),
+		gocron.WithLimitedRuns(1),
+		gocron.WithSingletonMode(gocron.LimitModeReschedule),
+	)
 
+	if insertErr != nil {
+		slog.Error("Error creating job", slog.String("error", insertErr.Error()))
+		return insertErr
+	}
+	en.cronState.registerJobInfo(
+		notifyID, jobContext{
+			ID:      newJob.ID(),
+			startAt: event.StartAt,
+			endAt:   event.EndAt,
+		},
+	)
+
+	err = en.repo.RegisterNotification(
+		entities.Notification{
+			EventID: event.ID, Status: entities.NotificationStatusPending, EventChecksum: event.SHAIdentifier(),
+		},
+	)
+
+	errStr := ""
+	if err != nil {
+		errStr = err.Error()
+	}
+	slog.Info(
+		"Job for notification registered",
+		slog.String("jobName", newJob.Name()),
+		slog.String("eventHash", event.SHAIdentifier()),
+		slog.String("dbErr", errStr),
+		slog.Time("startTime", startTime),
+	)
 	return
 }
 
@@ -201,4 +219,52 @@ func (en *EventNotifier) checkUpdateJobs() error {
 	}
 
 	return errors.Join(errList...)
+}
+
+func (en *EventNotifier) shouldNotify(event entities.OlympicEvent) (string, error) {
+	eventKey := event.SHAIdentifier()
+	jobCtx, found := en.cronState.retrieveJobID(eventKey)
+	if !found {
+		// Check if it exists on database
+		notificationRegister, err := en.repo.CheckSentNotifications(event.ID, eventKey)
+		if err == nil && notificationRegister.ID != 0 {
+			// Check if it has the pending status
+			if notificationRegister.Status != entities.NotificationStatusPending {
+				return "", nil
+			}
+		}
+
+		// Liberate for next checks
+	}
+
+	shouldInsertNew := true
+	if found && jobCtx.ID != uuid.Nil {
+		// Check if it has some update
+		shouldInsertNew = event.StartAt.Compare(jobCtx.startAt) != 0 ||
+			event.EndAt.Compare(jobCtx.endAt) != 0
+	}
+
+	updateStatus := entities.NotificationStatusSkipped
+	if !shouldInsertNew {
+		if err := en.cronState.removeJob(eventKey, jobCtx.ID); err != nil {
+			slog.Error("Error removing job", slog.String("error", err.Error()))
+			return "", err
+		}
+
+		updateStatus = entities.NotificationStatusCancelled
+	}
+
+	now := time.Now()
+	if shouldInsertNew && event.EndAt.After(now) {
+		return eventKey, nil
+	}
+
+	err := en.repo.RegisterNotification(
+		entities.Notification{
+			EventID:       event.ID,
+			Status:        updateStatus,
+			EventChecksum: event.SHAIdentifier(),
+		},
+	)
+	return "", err
 }
