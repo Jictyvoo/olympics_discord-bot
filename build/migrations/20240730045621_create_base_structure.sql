@@ -29,6 +29,6 @@ CREATE TABLE olympic_events (id integer NOT NULL PRIMARY KEY AUTOINCREMENT, even
 -- Create index "olympicevent_event_name_discipline_id_phase_gender" to table: "olympic_events"
 CREATE UNIQUE INDEX olympicevent_event_name_discipline_id_phase_gender ON olympic_events (event_name, discipline_id, phase, gender);
 -- Create "results" table
-CREATE TABLE results (id integer NOT NULL PRIMARY KEY AUTOINCREMENT, position text NULL, mark text NULL, medal_type text NULL, irm text NOT NULL, competitor_id integer NOT NULL, event_id integer NOT NULL, CONSTRAINT results_competitors_results FOREIGN KEY (competitor_id) REFERENCES competitors (id) ON DELETE NO ACTION, CONSTRAINT results_olympic_events_results FOREIGN KEY (event_id) REFERENCES olympic_events (id) ON DELETE NO ACTION);
+CREATE TABLE results (id uuid NOT NULL, position text NULL, mark text NULL, medal_type text NULL, irm text NOT NULL, competitor_id integer NOT NULL, event_id integer NOT NULL, PRIMARY KEY (id), CONSTRAINT results_competitors_results FOREIGN KEY (competitor_id) REFERENCES competitors (id) ON DELETE NO ACTION, CONSTRAINT results_olympic_events_results FOREIGN KEY (event_id) REFERENCES olympic_events (id) ON DELETE NO ACTION);
 -- Create index "results_competitor_id_event_id" to table: "results"
 CREATE UNIQUE INDEX results_competitor_id_event_id ON results (competitor_id, event_id);

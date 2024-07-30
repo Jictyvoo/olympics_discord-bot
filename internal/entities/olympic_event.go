@@ -6,6 +6,11 @@ import (
 	"time"
 )
 
+type (
+	Identifier uint64
+	HexID      string
+)
+
 type Gender uint8
 
 const (
@@ -33,8 +38,6 @@ const (
 )
 
 type UnitType string
-
-type Identifier uint64
 
 type OlympicCompetitors struct {
 	ID          Identifier

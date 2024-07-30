@@ -5,6 +5,7 @@ import (
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
+	"github.com/google/uuid"
 )
 
 // Results holds the schema definition for the Results entity.
@@ -15,7 +16,7 @@ type Results struct {
 // Fields of the Results.
 func (Results) Fields() []ent.Field {
 	return []ent.Field{
-		field.Uint64("id").Unique(),
+		field.UUID("id", uuid.New()).Unique(),
 		field.Uint64("competitor_id").Immutable(),
 		field.Uint64("event_id").Immutable(),
 		field.String("position").Optional(),
