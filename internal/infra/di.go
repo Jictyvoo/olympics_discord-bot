@@ -1,6 +1,8 @@
 package infra
 
 import (
+	"time"
+
 	"github.com/wrapped-owls/goremy-di/remy"
 
 	"github.com/jictyvoo/olympics_data_fetcher/internal/infra/datasources"
@@ -16,7 +18,9 @@ func RegisterInfraServices(inj remy.Injector) {
 			if err != nil {
 				return nil, err
 			}
-			return datasources.NewDirectoryCache(cacheDir)
+
+			cacheDuration, _ := remy.DoGet[time.Duration](retriever, "cache")
+			return datasources.NewDirectoryCache(cacheDir, cacheDuration)
 		},
 	)
 

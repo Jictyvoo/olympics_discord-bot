@@ -47,19 +47,23 @@ type DirectoryCache struct {
 	cacheDuration time.Duration
 }
 
-func NewDirectoryCache(rootPath string) (*DirectoryCache, error) {
+func NewDirectoryCache(rootPath string, cacheDuration time.Duration) (*DirectoryCache, error) {
 	if err := utils.CreateDirIfNotExist(rootPath); err != nil {
 		return nil, err
 	}
 	folderRef, err := os.Open(rootPath)
-	instanceCache := DirectoryCache{rootPath: rootPath, folderRef: folderRef}
+	instanceCache := DirectoryCache{
+		rootPath:      rootPath,
+		folderRef:     folderRef,
+		cacheDuration: cacheDuration,
+	}
 	if err != nil {
 		return nil, err
 	}
 
 	instanceCache.loadedCache, err = loadExistentFolderCache(folderRef)
 	if instanceCache.cacheDuration == 0 {
-		instanceCache.cacheDuration = time.Hour
+		instanceCache.cacheDuration = 4 * time.Minute
 	}
 	return &instanceCache, err
 }
