@@ -11,6 +11,7 @@ const (
 	envDiscordToken    = "DISCORD_TOKEN"
 	envDiscordClientID = "DISCORD_CLIENT_ID"
 
+	envDatabasePath   = "DATABASE_PATH"
 	envWatchCountries = "WATCH_COUNTRIES"
 	envAPILocale      = "API_LOCALE"
 )

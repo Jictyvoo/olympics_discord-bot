@@ -14,7 +14,7 @@ import (
 
 func main() {
 	conf := bootstrap.Config()
-	db := bootstrap.OpenDatabase()
+	db := bootstrap.OpenDatabase(conf.DBPath)
 	defer db.Close()
 
 	inj := remy.NewInjector(remy.Config{DuckTypeElements: true})

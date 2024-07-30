@@ -18,5 +18,6 @@ type (
 		ProjectName string  `toml:"project_name"`
 		Runtime     Runtime `toml:"server"`
 		Discord     Discord `toml:"discord"`
+		DBPath      string  `toml:"db_path"`
 	}
 )

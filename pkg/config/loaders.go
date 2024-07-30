@@ -19,6 +19,7 @@ func DefaultConfig() Config {
 	return Config{
 		IsDebug:     false,
 		ProjectName: "olympics_PARIS--2024",
+		DBPath:      "olympics-2024_PARIS.db",
 	}
 }
 
@@ -31,6 +32,7 @@ func LoadConfigFromLoader(config *Config, loader Loader) {
 	}
 
 	LoadDiscord(&config.Discord, loader)
+	loader.GetString(&config.DBPath, envDatabasePath)
 	loader.GetString(&config.ProjectName, envProjectName)
 	loader.GetString(&config.Runtime.APILocale, envAPILocale)
 
