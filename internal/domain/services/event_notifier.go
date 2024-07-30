@@ -19,12 +19,23 @@ type (
 		LoadEvent(id entities.Identifier) (entities.OlympicEvent, error)
 		// LoadCompetitorsFromEvent(event entities.OlympicEvent) ([]entities.OlympicCompetitors, error)
 	}
+
+	EventNotifierRepository interface {
+		EventLoader
+		CheckSentNotifications(
+			eventID entities.Identifier, eventChecksum string,
+		) (entities.Notification, error)
+		RegisterNotification(notification entities.Notification) error
+	}
+)
+
+type (
 	CancelChannel chan struct{}
 	EventNotifier struct {
 		cancelChan     CancelChannel
 		cacheDuration  time.Duration
 		fetcherUseCase usecases.FetcherCacheUseCase
-		repo           EventLoader
+		repo           EventNotifierRepository
 		mutex          sync.Mutex
 		cronState
 	}
@@ -32,7 +43,7 @@ type (
 
 func NewEventNotifier(
 	cancelChan CancelChannel, cacheDuration time.Duration,
-	repo EventLoader, fetcherUseCase usecases.FetcherCacheUseCase,
+	repo EventNotifierRepository, fetcherUseCase usecases.FetcherCacheUseCase,
 ) (en *EventNotifier, err error) {
 	en = &EventNotifier{
 		cancelChan:     cancelChan,

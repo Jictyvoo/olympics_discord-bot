@@ -30,7 +30,9 @@ func RegisterRepositories(inj remy.Injector) {
 		constructRepoSQLITE[usecases.AccessDatabaseRepository],
 	)
 	remy.RegisterConstructorArgs1(
-		inj, remy.Factory[services.EventLoader], constructRepoSQLITE[services.EventLoader],
+		inj,
+		remy.Factory[services.EventNotifierRepository],
+		constructRepoSQLITE[services.EventNotifierRepository],
 	)
 	remy.RegisterConstructorArgs2(
 		inj, remy.Factory[usecases.OlympicsFetcher], repolympicfetch.NewOlympicsFetcher,
