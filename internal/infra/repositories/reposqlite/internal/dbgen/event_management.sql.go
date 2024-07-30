@@ -29,6 +29,7 @@ SELECT e.id                     as event_id,
        od.name                  as discipline_name,
        e.phase,
        e.gender,
+       e.session_code,
        CAST(e.start_at AS TEXT) as start_at,
        CAST(e.end_at AS TEXT)   as end_at,
        e.status
@@ -44,6 +45,7 @@ type GetEventRow struct {
 	DisciplineName string `db:"discipline_name"`
 	Phase          string `db:"phase"`
 	Gender         int64  `db:"gender"`
+	SessionCode    string `db:"session_code"`
 	StartAt        string `db:"start_at"`
 	EndAt          string `db:"end_at"`
 	Status         string `db:"status"`
@@ -58,6 +60,7 @@ func (q *Queries) GetEvent(ctx context.Context, id int64) (GetEventRow, error) {
 		&i.DisciplineName,
 		&i.Phase,
 		&i.Gender,
+		&i.SessionCode,
 		&i.StartAt,
 		&i.EndAt,
 		&i.Status,
@@ -90,6 +93,7 @@ SELECT e.id                     as event_id,
        od.name                  as discipline_name,
        e.phase,
        e.gender,
+       e.session_code,
        CAST(e.start_at AS TEXT) as start_at,
        CAST(e.end_at AS TEXT)   as end_at,
        e.status
@@ -112,6 +116,7 @@ type LoadDayEventsRow struct {
 	DisciplineName string `db:"discipline_name"`
 	Phase          string `db:"phase"`
 	Gender         int64  `db:"gender"`
+	SessionCode    string `db:"session_code"`
 	StartAt        string `db:"start_at"`
 	EndAt          string `db:"end_at"`
 	Status         string `db:"status"`
@@ -132,6 +137,7 @@ func (q *Queries) LoadDayEvents(ctx context.Context, arg LoadDayEventsParams) ([
 			&i.DisciplineName,
 			&i.Phase,
 			&i.Gender,
+			&i.SessionCode,
 			&i.StartAt,
 			&i.EndAt,
 			&i.Status,
@@ -150,11 +156,11 @@ func (q *Queries) LoadDayEvents(ctx context.Context, arg LoadDayEventsParams) ([
 }
 
 const SaveEvent = `-- name: SaveEvent :one
-INSERT INTO olympic_events (event_name, discipline_id, phase, gender, start_at, end_at, status)
-VALUES (?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT (event_name, discipline_id, phase, gender) DO UPDATE SET status=excluded.status,
-                                                                     start_at=excluded.start_at,
-                                                                     end_at=excluded.end_at
+INSERT INTO olympic_events (event_name, discipline_id, phase, gender, session_code, start_at, end_at, status)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (event_name, discipline_id, phase, gender, session_code) DO UPDATE SET status=excluded.status,
+                                                                                   start_at=excluded.start_at,
+                                                                                   end_at=excluded.end_at
 RETURNING id
 `
 
@@ -163,6 +169,7 @@ type SaveEventParams struct {
 	DisciplineID int64     `db:"discipline_id"`
 	Phase        string    `db:"phase"`
 	Gender       int64     `db:"gender"`
+	SessionCode  string    `db:"session_code"`
 	StartAt      time.Time `db:"start_at"`
 	EndAt        time.Time `db:"end_at"`
 	Status       string    `db:"status"`
@@ -174,6 +181,7 @@ func (q *Queries) SaveEvent(ctx context.Context, arg SaveEventParams) (int64, er
 		arg.DisciplineID,
 		arg.Phase,
 		arg.Gender,
+		arg.SessionCode,
 		arg.StartAt,
 		arg.EndAt,
 		arg.Status,

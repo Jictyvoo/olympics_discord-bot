@@ -54,6 +54,7 @@ type OlympicEvent struct {
 	DisciplineName string
 	Phase          string
 	Gender         Gender
+	SessionCode    string
 	UnitType       UnitType
 	StartAt        time.Time
 	EndAt          time.Time
@@ -66,6 +67,7 @@ func (oe OlympicEvent) SHAIdentifier() string {
 	hasher.Write([]byte(oe.DisciplineName))
 	hasher.Write([]byte(strconv.Itoa(int(oe.Gender))))
 	hasher.Write([]byte(oe.Phase))
+	hasher.Write([]byte(oe.SessionCode))
 
 	identifier := hasher.Sum([]byte(oe.EventName))
 	return string(identifier)

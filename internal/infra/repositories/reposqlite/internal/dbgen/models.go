@@ -41,6 +41,7 @@ type OlympicEvent struct {
 	EventName    string    `db:"event_name"`
 	Phase        string    `db:"phase"`
 	Gender       int64     `db:"gender"`
+	SessionCode  string    `db:"session_code"`
 	StartAt      time.Time `db:"start_at"`
 	EndAt        time.Time `db:"end_at"`
 	Status       string    `db:"status"`

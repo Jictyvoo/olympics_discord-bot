@@ -22,6 +22,7 @@ func (OlympicEvent) Fields() []ent.Field {
 		field.Uint64("discipline_id"),
 		field.String("phase"),
 		field.Uint8("gender"),
+		field.String("session_code"),
 		field.Time("start_at").Default(time.Now),
 		field.Time("end_at").Default(time.Now),
 		field.String("status"),
@@ -31,7 +32,7 @@ func (OlympicEvent) Fields() []ent.Field {
 // Indexes of the OlympicEvent.
 func (OlympicEvent) Indexes() []ent.Index {
 	return []ent.Index{
-		index.Fields("event_name", "discipline_id", "phase", "gender").Unique(),
+		index.Fields("event_name", "discipline_id", "phase", "gender", "session_code").Unique(),
 	}
 }
 

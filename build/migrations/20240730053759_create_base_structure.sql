@@ -25,9 +25,9 @@ CREATE UNIQUE INDEX olympicdiscipline_id ON olympic_disciplines (id);
 -- Create index "olympicdiscipline_name" to table: "olympic_disciplines"
 CREATE UNIQUE INDEX olympicdiscipline_name ON olympic_disciplines (name);
 -- Create "olympic_events" table
-CREATE TABLE olympic_events (id integer NOT NULL PRIMARY KEY AUTOINCREMENT, event_name text NOT NULL, phase text NOT NULL, gender integer NOT NULL, start_at datetime NOT NULL, end_at datetime NOT NULL, status text NOT NULL, discipline_id integer NOT NULL, CONSTRAINT olympic_events_olympic_disciplines_olympic_events FOREIGN KEY (discipline_id) REFERENCES olympic_disciplines (id) ON DELETE NO ACTION);
--- Create index "olympicevent_event_name_discipline_id_phase_gender" to table: "olympic_events"
-CREATE UNIQUE INDEX olympicevent_event_name_discipline_id_phase_gender ON olympic_events (event_name, discipline_id, phase, gender);
+CREATE TABLE olympic_events (id integer NOT NULL PRIMARY KEY AUTOINCREMENT, event_name text NOT NULL, phase text NOT NULL, gender integer NOT NULL, session_code text NOT NULL, start_at datetime NOT NULL, end_at datetime NOT NULL, status text NOT NULL, discipline_id integer NOT NULL, CONSTRAINT olympic_events_olympic_disciplines_olympic_events FOREIGN KEY (discipline_id) REFERENCES olympic_disciplines (id) ON DELETE NO ACTION);
+-- Create index "olympicevent_event_name_discipline_id_phase_gender_session_code" to table: "olympic_events"
+CREATE UNIQUE INDEX olympicevent_event_name_discipline_id_phase_gender_session_code ON olympic_events (event_name, discipline_id, phase, gender, session_code);
 -- Create "results" table
 CREATE TABLE results (id uuid NOT NULL, position text NULL, mark text NULL, medal_type text NULL, irm text NOT NULL, competitor_id integer NOT NULL, event_id integer NOT NULL, PRIMARY KEY (id), CONSTRAINT results_competitors_results FOREIGN KEY (competitor_id) REFERENCES competitors (id) ON DELETE NO ACTION, CONSTRAINT results_olympic_events_results FOREIGN KEY (event_id) REFERENCES olympic_events (id) ON DELETE NO ACTION);
 -- Create index "results_competitor_id_event_id" to table: "results"

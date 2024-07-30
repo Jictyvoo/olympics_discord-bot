@@ -53,6 +53,7 @@ func (r RepoSQLite) SaveEvent(
 			DisciplineID: int64(disciplineID),
 			Phase:        event.Phase,
 			Gender:       int64(event.Gender),
+			SessionCode:  event.SessionCode,
 			StartAt:      event.StartAt,
 			EndAt:        event.EndAt,
 			Status:       string(event.Status),
@@ -130,6 +131,7 @@ func (r RepoSQLite) LoadDayEvents(from time.Time) ([]entities.OlympicEvent, erro
 			DisciplineName: foundEvent.DisciplineName,
 			Phase:          foundEvent.Phase,
 			Gender:         entities.Gender(foundEvent.Gender),
+			SessionCode:    foundEvent.SessionCode,
 			Status:         entities.EventStatus(foundEvent.Status),
 			Competitors:    competitors,
 		}
@@ -167,6 +169,7 @@ func (r RepoSQLite) LoadEvent(id entities.Identifier) (entities.OlympicEvent, er
 		DisciplineName: foundEvent.DisciplineName,
 		Phase:          foundEvent.Phase,
 		Gender:         entities.Gender(foundEvent.Gender),
+		SessionCode:    foundEvent.SessionCode,
 		Status:         entities.EventStatus(foundEvent.Status),
 		Competitors:    competitors,
 	}

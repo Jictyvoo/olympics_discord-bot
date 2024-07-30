@@ -49,6 +49,7 @@ func (repo OlympicsFetcherImpl) parseAPIResp(response OlympicsAPIResponse) []ent
 			DisciplineName: unit.DisciplineName,
 			Phase:          unit.PhaseName,
 			Gender:         entities.GenderOther,
+			SessionCode:    unit.UnitNum + "_#" + unit.SessionCode,
 			StartAt:        unit.StartDate,
 			EndAt:          unit.EndDate,
 		}
@@ -88,7 +89,7 @@ func (repo OlympicsFetcherImpl) FetchDataFromDay(day time.Time) ([]entities.Olym
 	return repo.parseAPIResp(jsonResp), err
 }
 
-func (repo OlympicsFetcherImpl) FetchWarchOn() ([]string, error) {
+func (repo OlympicsFetcherImpl) FetchWatchOn() ([]string, error) {
 	const apiURL = "https://sph-i-api.olympics.com/summer/info/api/%s/mrh"
 	resp, err := repo.ds.Get(fmt.Sprintf(apiURL, repo.lang.Code))
 	if err != nil {
