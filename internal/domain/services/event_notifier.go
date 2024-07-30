@@ -57,6 +57,33 @@ func NewEventNotifier(
 	return
 }
 
+func (en *EventNotifier) Start() {
+	en.cronScheduler.Start()
+}
+
+func (en *EventNotifier) MainLoop() error {
+	go en.fetcherThread()
+
+	ticker := time.NewTicker(en.cacheDuration >> 1)
+	defer ticker.Stop()
+
+	// Do a first check before running the timer
+	if err := en.checkUpdateJobs(); err != nil {
+		return err
+	}
+
+	for {
+		select {
+		case _, _ = <-en.cancelChan:
+			return nil
+		case _, _ = <-ticker.C:
+			if err := en.checkUpdateJobs(); err != nil {
+				return err
+			}
+		}
+	}
+}
+
 func (en *EventNotifier) fetchRemainingDays(from time.Time) {
 	en.mutex.Lock() // Prevent sqlite multi access
 	defer en.mutex.Unlock()
@@ -86,33 +113,6 @@ func (en *EventNotifier) fetcherThread() {
 	}
 }
 
-func (en *EventNotifier) Start() {
-	en.cronScheduler.Start()
-}
-
-func (en *EventNotifier) MainLoop() error {
-	go en.fetcherThread()
-
-	ticker := time.NewTicker(en.cacheDuration >> 1)
-	defer ticker.Stop()
-
-	// Do a first check before running the timer
-	if err := en.checkUpdateJobs(); err != nil {
-		return err
-	}
-
-	for {
-		select {
-		case _, _ = <-en.cancelChan:
-			return nil
-		case _, _ = <-ticker.C:
-			if err := en.checkUpdateJobs(); err != nil {
-				return err
-			}
-		}
-	}
-}
-
 func (en *EventNotifier) taskExecution(event entities.OlympicEvent) {
 	en.mutex.Lock()
 	defer en.mutex.Unlock()
@@ -125,6 +125,8 @@ func (en *EventNotifier) taskExecution(event entities.OlympicEvent) {
 		)
 		updatedEvent = event
 	}
+
+	// Use cron state to trigger observers
 	en.cronState.taskExecution(updatedEvent)
 }
 

@@ -1,6 +1,7 @@
 package services
 
 import (
+	"errors"
 	"sync"
 	"time"
 
@@ -39,6 +40,16 @@ func (cs *cronState) retrieveJobID(key string) (jobContext, bool) {
 
 func (cs *cronState) registerJobInfo(key string, jCtx jobContext) {
 	cs.jobIDs[key] = jCtx
+}
+
+func (cs *cronState) removeJob(eventKey string, jobID uuid.UUID) error {
+	delete(cs.jobIDs, eventKey)
+	if err := cs.cronScheduler.RemoveJob(jobID); err != nil &&
+		!errors.Is(err, gocron.ErrJobNotFound) {
+		return err
+	}
+
+	return nil
 }
 
 func (cs *cronState) RegisterObserver(observer EventObserver) {
