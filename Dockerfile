@@ -56,7 +56,9 @@ ADD build/container-entrypoint.sh ./entrypoint.sh
 
 # Ensure the binary is executable
 RUN chmod +x /bin/olympicsBOT && chmod +x ./entrypoint.sh
+RUN mkdir -p /app/data
 
+ENV DATABASE_PATH=/app/data/olympics-2024_PARIS.db
 
 # Run the binary program
 #ENTRYPOINT ["tail", "-f", "/dev/null"]
