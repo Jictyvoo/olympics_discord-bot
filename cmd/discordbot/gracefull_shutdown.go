@@ -60,5 +60,6 @@ func gracefullShutdown(
 	<-sc
 
 	cancelChan <- struct{}{}
+	close(cancelChan)
 	wg.Wait()
 }

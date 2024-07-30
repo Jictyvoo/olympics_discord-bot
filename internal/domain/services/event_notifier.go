@@ -87,13 +87,17 @@ func (en *EventNotifier) MainLoop() error {
 	if err := en.checkUpdateJobs(); err != nil {
 		return err
 	}
-	for range ticker.C {
-		if err := en.checkUpdateJobs(); err != nil {
-			return err
+
+	for {
+		select {
+		case _, _ = <-en.cancelChan:
+			return nil
+		case _, _ = <-ticker.C:
+			if err := en.checkUpdateJobs(); err != nil {
+				return err
+			}
 		}
 	}
-
-	return nil
 }
 
 func (en *EventNotifier) manageEventJob(event entities.OlympicEvent) (err error) {
