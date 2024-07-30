@@ -94,5 +94,8 @@ func (oen OlympicEventManager) OnEvent(event entities.OlympicEvent) {
 			slog.String("message", content),
 			slog.String("error", err.Error()),
 		)
+		return
 	}
+
+	slog.Info("Event successfully sent to notifier", slog.Any("event", event))
 }

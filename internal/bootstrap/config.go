@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"errors"
 	"log/slog"
 	"os"
 
@@ -10,12 +11,14 @@ import (
 func Config() config.Config {
 	conf, confErr := config.LoadTOML(config.DefaultFileName)
 	if confErr != nil {
-		slog.Error(
-			"Error loading config file",
-			slog.String("file", config.DefaultFileName),
-			slog.String("error", confErr.Error()),
-		)
-		os.Exit(1)
+		if os.IsNotExist(errors.Unwrap(confErr)) {
+			slog.Error(
+				"Error loading config file",
+				slog.String("file", config.DefaultFileName),
+				slog.String("error", confErr.Error()),
+			)
+			os.Exit(1)
+		}
 	}
 
 	config.LoadConfigFromLoader(&conf, config.EnvLoader{})

@@ -18,6 +18,8 @@ func gracefullShutdown(
 	discClient *discordgo.Session,
 ) {
 	var wg sync.WaitGroup
+	sc := make(chan os.Signal, 1)
+	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 
 	{
 		wg.Add(1)
@@ -28,6 +30,7 @@ func gracefullShutdown(
 					"Error starting notifier service",
 					slog.String("err", err.Error()),
 				)
+				sc <- syscall.SIGTERM
 				return
 			}
 		}()
@@ -43,6 +46,7 @@ func gracefullShutdown(
 					"Error opening connection",
 					slog.String("err", err.Error()),
 				)
+				sc <- syscall.SIGTERM
 				return
 			}
 		}()
@@ -53,8 +57,6 @@ func gracefullShutdown(
 
 	// Wait here until CTRL-C or other term signal is received.
 	fmt.Println("Bot is now running. Press CTRL-C to exit.")
-	sc := make(chan os.Signal, 1)
-	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 	<-sc
 
 	cancelChan <- struct{}{}
