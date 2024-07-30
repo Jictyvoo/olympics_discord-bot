@@ -23,6 +23,48 @@ func (q *Queries) GetDisciplineIDByName(ctx context.Context, name string) (int64
 	return id, err
 }
 
+const GetEvent = `-- name: GetEvent :one
+SELECT e.id                     as event_id,
+       e.event_name,
+       od.name                  as discipline_name,
+       e.phase,
+       e.gender,
+       CAST(e.start_at AS TEXT) as start_at,
+       CAST(e.end_at AS TEXT)   as end_at,
+       e.status
+FROM olympic_events e
+         INNER JOIN
+     olympic_disciplines od on e.discipline_id = od.id
+WHERE e.id = ?
+`
+
+type GetEventRow struct {
+	EventID        int64  `db:"event_id"`
+	EventName      string `db:"event_name"`
+	DisciplineName string `db:"discipline_name"`
+	Phase          string `db:"phase"`
+	Gender         int64  `db:"gender"`
+	StartAt        string `db:"start_at"`
+	EndAt          string `db:"end_at"`
+	Status         string `db:"status"`
+}
+
+func (q *Queries) GetEvent(ctx context.Context, id int64) (GetEventRow, error) {
+	row := q.db.QueryRowContext(ctx, GetEvent, id)
+	var i GetEventRow
+	err := row.Scan(
+		&i.EventID,
+		&i.EventName,
+		&i.DisciplineName,
+		&i.Phase,
+		&i.Gender,
+		&i.StartAt,
+		&i.EndAt,
+		&i.Status,
+	)
+	return i, err
+}
+
 const InsertDiscipline = `-- name: InsertDiscipline :one
 INSERT INTO olympic_disciplines (name, description)
 VALUES (?, ?)
@@ -142,8 +184,8 @@ func (q *Queries) SaveEvent(ctx context.Context, arg SaveEventParams) (int64, er
 }
 
 const SaveResults = `-- name: SaveResults :exec
-INSERT INTO results (competitor_id, event_id, position, mark, medal_type, irm)
-VALUES (?, ?, ?, ?, ?, ?)
+INSERT INTO results (id, competitor_id, event_id, position, mark, medal_type, irm)
+VALUES (?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (competitor_id, event_id) DO UPDATE SET position   = excluded.position,
                                                     mark       = excluded.mark,
                                                     medal_type = excluded.medal_type,
@@ -151,6 +193,7 @@ ON CONFLICT (competitor_id, event_id) DO UPDATE SET position   = excluded.positi
 `
 
 type SaveResultsParams struct {
+	ID           interface{} `db:"id"`
 	CompetitorID int64       `db:"competitor_id"`
 	EventID      int64       `db:"event_id"`
 	Position     interface{} `db:"position"`
@@ -161,6 +204,7 @@ type SaveResultsParams struct {
 
 func (q *Queries) SaveResults(ctx context.Context, arg SaveResultsParams) error {
 	_, err := q.db.ExecContext(ctx, SaveResults,
+		arg.ID,
 		arg.CompetitorID,
 		arg.EventID,
 		arg.Position,

@@ -48,7 +48,7 @@ type OlympicEvent struct {
 }
 
 type Result struct {
-	ID           int64       `db:"id"`
+	ID           interface{} `db:"id"`
 	Position     interface{} `db:"position"`
 	Mark         interface{} `db:"mark"`
 	MedalType    interface{} `db:"medal_type"`

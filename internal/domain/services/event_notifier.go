@@ -16,6 +16,7 @@ import (
 type (
 	EventLoader interface {
 		LoadDayEvents(now time.Time) ([]entities.OlympicEvent, error)
+		LoadEvent(id entities.Identifier) (entities.OlympicEvent, error)
 		// LoadCompetitorsFromEvent(event entities.OlympicEvent) ([]entities.OlympicCompetitors, error)
 	}
 	CancelChannel chan struct{}
@@ -80,7 +81,7 @@ func (en *EventNotifier) Start() {
 func (en *EventNotifier) MainLoop() error {
 	go en.fetcherThread()
 
-	ticker := time.NewTicker(en.cacheDuration << 1)
+	ticker := time.NewTicker(en.cacheDuration >> 1)
 	defer ticker.Stop()
 
 	// Do a first check before running the timer
@@ -98,6 +99,21 @@ func (en *EventNotifier) MainLoop() error {
 			}
 		}
 	}
+}
+
+func (en *EventNotifier) taskExecution(event entities.OlympicEvent) {
+	en.mutex.Lock()
+	defer en.mutex.Unlock()
+
+	updatedEvent, err := en.repo.LoadEvent(event.ID)
+	if err != nil {
+		slog.Error(
+			"Error loading event",
+			slog.String("error", err.Error()),
+		)
+		updatedEvent = event
+	}
+	en.cronState.taskExecution(updatedEvent)
 }
 
 func (en *EventNotifier) manageEventJob(event entities.OlympicEvent) (err error) {
@@ -128,7 +144,7 @@ func (en *EventNotifier) manageEventJob(event entities.OlympicEvent) (err error)
 			gocron.OneTimeJob(
 				gocron.OneTimeJobStartDateTime(startTime),
 			),
-			gocron.NewTask(en.cronState.taskExecution, event),
+			gocron.NewTask(en.taskExecution, event),
 			// gocron.WithStopAt(gocron.WithStopDateTime(event.EndAt)),
 			gocron.WithLimitedRuns(1),
 			gocron.WithSingletonMode(gocron.LimitModeReschedule),
