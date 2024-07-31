@@ -18,6 +18,7 @@ func (OlympicDiscipline) Fields() []ent.Field {
 		field.Uint64("id").Unique(),
 		field.String("name").Unique(),
 		field.String("description").Optional(),
+		field.String("code").MaxLen(3).Default(""),
 	}
 }
 
