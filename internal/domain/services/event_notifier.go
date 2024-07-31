@@ -68,6 +68,9 @@ func (en *EventNotifier) MainLoop() error {
 	defer ticker.Stop()
 
 	// Do a first check before running the timer
+	if err := en.updateDisciplines(); err != nil {
+		return err
+	}
 	if err := en.checkUpdateJobs(); err != nil {
 		return err
 	}
@@ -82,6 +85,16 @@ func (en *EventNotifier) MainLoop() error {
 			}
 		}
 	}
+}
+
+func (en *EventNotifier) updateDisciplines() error {
+	en.mutex.Lock()
+	defer en.mutex.Unlock()
+
+	if err := en.fetcherUseCase.FetchDisciplines(); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (en *EventNotifier) fetchRemainingDays(from time.Time) {
