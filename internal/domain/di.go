@@ -18,11 +18,6 @@ func RegisterUCs(inj remy.Injector) {
 }
 
 func RegisterServices(inj remy.Injector) {
-	remy.RegisterConstructorArgs2Err(
-		inj, remy.Factory[services.EventObserver],
-		services.NewOlympicEventManager,
-	)
-
 	remy.Register(
 		inj, remy.LazySingleton(
 			func(retriever remy.DependencyRetriever) (*services.EventNotifier, error) {

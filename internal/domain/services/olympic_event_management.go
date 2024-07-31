@@ -27,15 +27,17 @@ func discRelativeHour(timestamp time.Time) string {
 	return fmt.Sprintf("<t:%d:R>", timestamp.Unix())
 }
 
-func NewOlympicEventManager(watchCountries []string, facade NotifierFacade) (EventObserver, error) {
+func NewOlympicEventManager(
+	watchCountries []string,
+	facade NotifierFacade,
+) (OlympicEventManager, error) {
 	const tmpl = `
-# 🤾 {{.EventName}}
-**Discipline:** {{.DisciplineName}}
+# {{.Discipline}}
+**Event:** {{.EventName}} - {{.Status}}
 **Phase:** {{.Phase}}
 **Gender:** {{.Gender}}
 **Start:** {{discRelativeHour .StartAt}}
 **End:** {{discRelativeHour .EndAt}}
-**Status:** {{.Status}}
 **Competitors:**
 {{range .Competitors}}- :{{emojiFlag .Country}}: {{.Name}}, Age: {{.Age}}
 {{end}}`
@@ -72,6 +74,18 @@ func (oen OlympicEventManager) ShouldNotify(event entities.OlympicEvent) bool {
 	return false
 }
 
+func (oen OlympicEventManager) genContent(event entities.OlympicEvent) string {
+	// Create the needed message structure to be sent
+	var buf bytes.Buffer
+	err := oen.msgTemplate.Execute(&buf, event)
+	if err != nil {
+		slog.Error("Error executing template for Olympic event", slog.String("error", err.Error()))
+		return ""
+	}
+
+	return buf.String()
+}
+
 func (oen OlympicEventManager) OnEvent(event entities.OlympicEvent) {
 	// Check if it should notify the event
 	if !oen.ShouldNotify(event) {
@@ -79,16 +93,11 @@ func (oen OlympicEventManager) OnEvent(event entities.OlympicEvent) {
 	}
 
 	// Create the needed message structure to be sent
-	var buf bytes.Buffer
-	err := oen.msgTemplate.Execute(&buf, event)
-	if err != nil {
-		slog.Error("Error executing template for Olympic event", slog.String("error", err.Error()))
+	content := oen.genContent(event)
+	if content == "" {
 		return
 	}
-
-	content := buf.String()
-	err = oen.notifier.SendMessage(content)
-	if err != nil {
+	if err := oen.notifier.SendMessage(content); err != nil {
 		slog.Error(
 			"Error sending message using notifier",
 			slog.String("message", content),
