@@ -53,17 +53,17 @@ type OlympicCompetitors struct {
 }
 
 type OlympicEvent struct {
-	ID             Identifier
-	EventName      string
-	DisciplineName string
-	Phase          string
-	Gender         Gender
-	SessionCode    string
-	UnitType       UnitType
-	StartAt        time.Time
-	EndAt          time.Time
-	Status         EventStatus
-	Competitors    []OlympicCompetitors
+	ID          Identifier
+	EventName   string
+	Discipline  Discipline
+	Phase       string
+	Gender      Gender
+	SessionCode string
+	UnitType    UnitType
+	StartAt     time.Time
+	EndAt       time.Time
+	Status      EventStatus
+	Competitors []OlympicCompetitors
 }
 
 func (oe OlympicEvent) Hash() (string, error) {
@@ -91,7 +91,7 @@ func (oe OlympicEvent) SHAIdentifier() string {
 	}
 
 	var buffer bytes.Buffer
-	buffer.Write([]byte(oe.DisciplineName))
+	buffer.Write([]byte(oe.Discipline.Name))
 	buffer.Write([]byte(strconv.Itoa(int(oe.Gender))))
 	buffer.Write([]byte(oe.Phase))
 	buffer.Write([]byte(oe.SessionCode))
