@@ -9,11 +9,13 @@ import (
 type (
 	OlympicsFetcher interface {
 		FetchDataFromDay(day time.Time) ([]entities.OlympicEvent, error)
+		FetchDisciplines() ([]entities.Discipline, error)
 	}
 	AccessDatabaseRepository interface {
 		InsertCountries(countries []entities.CountryInfo) ([]entities.Identifier, error)
 		InsertCountry(country entities.CountryInfo) (entities.Identifier, error)
 		SaveCompetitor(competitors entities.OlympicCompetitors) (entities.Identifier, error)
+		SaveDisciplines(disciplineList []entities.Discipline) error
 		SaveEvent(event entities.OlympicEvent, competitorIDs []entities.Identifier) error
 	}
 )
@@ -54,5 +56,17 @@ func (uc FetcherCacheUseCase) Run(date time.Time) (err error) {
 		}
 	}
 
+	return
+}
+
+func (uc FetcherCacheUseCase) FetchDisciplines() (err error) {
+	// Start fetching all elements
+	var disciplines []entities.Discipline
+	if disciplines, err = uc.fetcherRepo.FetchDisciplines(); err != nil {
+		return
+	}
+
+	// Start to insert on database
+	err = uc.storageRepo.SaveDisciplines(disciplines)
 	return
 }

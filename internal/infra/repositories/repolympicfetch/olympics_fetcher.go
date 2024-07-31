@@ -45,13 +45,16 @@ func (repo OlympicsFetcherImpl) parseAPIResp(response OlympicsAPIResponse) []ent
 	events := make([]entities.OlympicEvent, 0, len(response.Units))
 	for _, unit := range response.Units {
 		newEvent := entities.OlympicEvent{
-			EventName:      unit.EventUnitName,
-			DisciplineName: unit.DisciplineName,
-			Phase:          unit.PhaseName,
-			Gender:         entities.GenderOther,
-			SessionCode:    unit.UnitNum + "_#" + unit.SessionCode,
-			StartAt:        unit.StartDate,
-			EndAt:          unit.EndDate,
+			EventName: unit.EventUnitName,
+			Discipline: entities.Discipline{
+				Name: unit.DisciplineName,
+				Code: unit.DisciplineCode,
+			},
+			Phase:       unit.PhaseName,
+			Gender:      entities.GenderOther,
+			SessionCode: unit.UnitNum + "_#" + unit.SessionCode,
+			StartAt:     unit.StartDate,
+			EndAt:       unit.EndDate,
 		}
 
 		switch {
