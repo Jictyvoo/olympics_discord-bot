@@ -32,7 +32,7 @@ func NewFetcherCacheUseCase(
 	return FetcherCacheUseCase{fetcherRepo: fetcherRepo, storageRepo: storageRepo}
 }
 
-func (uc FetcherCacheUseCase) Run(date time.Time) (err error) {
+func (uc FetcherCacheUseCase) FetchDay(date time.Time) (err error) {
 	// Start fetching all elements
 	var events []entities.OlympicEvent
 	events, err = uc.fetcherRepo.FetchDataFromDay(date)
