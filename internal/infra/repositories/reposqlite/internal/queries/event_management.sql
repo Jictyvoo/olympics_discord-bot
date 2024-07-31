@@ -1,13 +1,13 @@
 -- name: GetDisciplineIDByName :one
-SELECT id
+SELECT id, code
 FROM olympic_disciplines
 WHERE name = ?;
 
 
 -- name: InsertDiscipline :one
-INSERT INTO olympic_disciplines (name, description)
-VALUES (?, ?)
-ON CONFLICT DO NOTHING
+INSERT INTO olympic_disciplines (name, description, code)
+VALUES (?, ?, ?)
+ON CONFLICT(name) DO UPDATE SET code=excluded.code
 RETURNING id;
 
 
@@ -32,6 +32,7 @@ ON CONFLICT (competitor_id, event_id) DO UPDATE SET position   = excluded.positi
 SELECT e.id                     as event_id,
        e.event_name,
        od.name                  as discipline_name,
+       od.code                  as discipline_code,
        e.phase,
        e.gender,
        e.session_code,
@@ -50,6 +51,7 @@ ORDER BY e.start_at;
 SELECT e.id                     as event_id,
        e.event_name,
        od.name                  as discipline_name,
+       od.code                  as discipline_code,
        e.phase,
        e.gender,
        e.session_code,

@@ -11,22 +11,28 @@ import (
 )
 
 const GetDisciplineIDByName = `-- name: GetDisciplineIDByName :one
-SELECT id
+SELECT id, code
 FROM olympic_disciplines
 WHERE name = ?
 `
 
-func (q *Queries) GetDisciplineIDByName(ctx context.Context, name string) (int64, error) {
+type GetDisciplineIDByNameRow struct {
+	ID   int64  `db:"id"`
+	Code string `db:"code"`
+}
+
+func (q *Queries) GetDisciplineIDByName(ctx context.Context, name string) (GetDisciplineIDByNameRow, error) {
 	row := q.db.QueryRowContext(ctx, GetDisciplineIDByName, name)
-	var id int64
-	err := row.Scan(&id)
-	return id, err
+	var i GetDisciplineIDByNameRow
+	err := row.Scan(&i.ID, &i.Code)
+	return i, err
 }
 
 const GetEvent = `-- name: GetEvent :one
 SELECT e.id                     as event_id,
        e.event_name,
        od.name                  as discipline_name,
+       od.code                  as discipline_code,
        e.phase,
        e.gender,
        e.session_code,
@@ -43,6 +49,7 @@ type GetEventRow struct {
 	EventID        int64  `db:"event_id"`
 	EventName      string `db:"event_name"`
 	DisciplineName string `db:"discipline_name"`
+	DisciplineCode string `db:"discipline_code"`
 	Phase          string `db:"phase"`
 	Gender         int64  `db:"gender"`
 	SessionCode    string `db:"session_code"`
@@ -58,6 +65,7 @@ func (q *Queries) GetEvent(ctx context.Context, id int64) (GetEventRow, error) {
 		&i.EventID,
 		&i.EventName,
 		&i.DisciplineName,
+		&i.DisciplineCode,
 		&i.Phase,
 		&i.Gender,
 		&i.SessionCode,
@@ -69,19 +77,20 @@ func (q *Queries) GetEvent(ctx context.Context, id int64) (GetEventRow, error) {
 }
 
 const InsertDiscipline = `-- name: InsertDiscipline :one
-INSERT INTO olympic_disciplines (name, description)
-VALUES (?, ?)
-ON CONFLICT DO NOTHING
+INSERT INTO olympic_disciplines (name, description, code)
+VALUES (?, ?, ?)
+ON CONFLICT(name) DO UPDATE SET code=excluded.code
 RETURNING id
 `
 
 type InsertDisciplineParams struct {
 	Name        string      `db:"name"`
 	Description interface{} `db:"description"`
+	Code        string      `db:"code"`
 }
 
 func (q *Queries) InsertDiscipline(ctx context.Context, arg InsertDisciplineParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, InsertDiscipline, arg.Name, arg.Description)
+	row := q.db.QueryRowContext(ctx, InsertDiscipline, arg.Name, arg.Description, arg.Code)
 	var id int64
 	err := row.Scan(&id)
 	return id, err
@@ -91,6 +100,7 @@ const LoadDayEvents = `-- name: LoadDayEvents :many
 SELECT e.id                     as event_id,
        e.event_name,
        od.name                  as discipline_name,
+       od.code                  as discipline_code,
        e.phase,
        e.gender,
        e.session_code,
@@ -114,6 +124,7 @@ type LoadDayEventsRow struct {
 	EventID        int64  `db:"event_id"`
 	EventName      string `db:"event_name"`
 	DisciplineName string `db:"discipline_name"`
+	DisciplineCode string `db:"discipline_code"`
 	Phase          string `db:"phase"`
 	Gender         int64  `db:"gender"`
 	SessionCode    string `db:"session_code"`
@@ -135,6 +146,7 @@ func (q *Queries) LoadDayEvents(ctx context.Context, arg LoadDayEventsParams) ([
 			&i.EventID,
 			&i.EventName,
 			&i.DisciplineName,
+			&i.DisciplineCode,
 			&i.Phase,
 			&i.Gender,
 			&i.SessionCode,

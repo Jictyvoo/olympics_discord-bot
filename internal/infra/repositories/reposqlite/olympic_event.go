@@ -1,7 +1,6 @@
 package reposqlite
 
 import (
-	"context"
 	"database/sql"
 	"errors"
 	"time"
@@ -11,26 +10,6 @@ import (
 	"github.com/jictyvoo/olympics_data_fetcher/internal/entities"
 	"github.com/jictyvoo/olympics_data_fetcher/internal/infra/repositories/reposqlite/internal/dbgen"
 )
-
-func (r RepoSQLite) upsertDiscipline(
-	ctx context.Context, dbQuery *dbgen.Queries, name string,
-) (disciplineID entities.Identifier, err error) {
-	var foundID int64
-
-	foundID, err = dbQuery.GetDisciplineIDByName(ctx, name)
-	if foundID > 0 || (err != nil && !errors.Is(sql.ErrNoRows, err)) {
-		return entities.Identifier(foundID), nil
-	}
-
-	id, insertErr := dbQuery.InsertDiscipline(
-		ctx, dbgen.InsertDisciplineParams{
-			Name:        name,
-			Description: nil,
-		},
-	)
-
-	return entities.Identifier(id), insertErr
-}
 
 func (r RepoSQLite) SaveEvent(
 	event entities.OlympicEvent, competitorIDs []entities.Identifier,
@@ -42,7 +21,7 @@ func (r RepoSQLite) SaveEvent(
 	dbQuery := r.queries
 
 	// Insert and retrieve discipline ID
-	disciplineID, err := r.upsertDiscipline(ctx, dbQuery, event.DisciplineName)
+	disciplineID, err := r.upsertDiscipline(ctx, dbQuery, event.Discipline)
 	if err != nil {
 		return err
 	}
@@ -126,14 +105,17 @@ func (r RepoSQLite) LoadDayEvents(from time.Time) ([]entities.OlympicEvent, erro
 		}
 
 		eventList[index] = entities.OlympicEvent{
-			ID:             eventID,
-			EventName:      foundEvent.EventName,
-			DisciplineName: foundEvent.DisciplineName,
-			Phase:          foundEvent.Phase,
-			Gender:         entities.Gender(foundEvent.Gender),
-			SessionCode:    foundEvent.SessionCode,
-			Status:         entities.EventStatus(foundEvent.Status),
-			Competitors:    competitors,
+			ID:        eventID,
+			EventName: foundEvent.EventName,
+			Discipline: entities.Discipline{
+				Name: foundEvent.DisciplineName,
+				Code: foundEvent.DisciplineCode,
+			},
+			Phase:       foundEvent.Phase,
+			Gender:      entities.Gender(foundEvent.Gender),
+			SessionCode: foundEvent.SessionCode,
+			Status:      entities.EventStatus(foundEvent.Status),
+			Competitors: competitors,
 		}
 
 		parseStartEndTimes(&eventList[index], foundEvent.StartAt, foundEvent.EndAt)
@@ -164,14 +146,17 @@ func (r RepoSQLite) LoadEvent(id entities.Identifier) (entities.OlympicEvent, er
 	}
 
 	resultEvent := entities.OlympicEvent{
-		ID:             eventID,
-		EventName:      foundEvent.EventName,
-		DisciplineName: foundEvent.DisciplineName,
-		Phase:          foundEvent.Phase,
-		Gender:         entities.Gender(foundEvent.Gender),
-		SessionCode:    foundEvent.SessionCode,
-		Status:         entities.EventStatus(foundEvent.Status),
-		Competitors:    competitors,
+		ID:        eventID,
+		EventName: foundEvent.EventName,
+		Discipline: entities.Discipline{
+			Name: foundEvent.DisciplineName,
+			Code: foundEvent.DisciplineCode,
+		},
+		Phase:       foundEvent.Phase,
+		Gender:      entities.Gender(foundEvent.Gender),
+		SessionCode: foundEvent.SessionCode,
+		Status:      entities.EventStatus(foundEvent.Status),
+		Competitors: competitors,
 	}
 
 	parseStartEndTimes(&resultEvent, foundEvent.StartAt, foundEvent.EndAt)

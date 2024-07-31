@@ -42,6 +42,7 @@ type OlympicDiscipline struct {
 	ID          int64       `db:"id"`
 	Name        string      `db:"name"`
 	Description interface{} `db:"description"`
+	Code        string      `db:"code"`
 }
 
 type OlympicEvent struct {
