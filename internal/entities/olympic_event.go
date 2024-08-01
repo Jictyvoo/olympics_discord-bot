@@ -53,17 +53,18 @@ type OlympicCompetitors struct {
 }
 
 type OlympicEvent struct {
-	ID          Identifier
-	EventName   string
-	Discipline  Discipline
-	Phase       string
-	Gender      Gender
-	SessionCode string
-	UnitType    UnitType
-	StartAt     time.Time
-	EndAt       time.Time
-	Status      EventStatus
-	Competitors []OlympicCompetitors
+	ID                  Identifier
+	EventName           string
+	Discipline          Discipline
+	Phase               string
+	Gender              Gender
+	SessionCode         string
+	UnitType            UnitType
+	StartAt             time.Time
+	EndAt               time.Time
+	Status              EventStatus
+	Competitors         []OlympicCompetitors
+	ResultPerCompetitor map[string]Results
 }
 
 func (oe OlympicEvent) Hash() (string, error) {

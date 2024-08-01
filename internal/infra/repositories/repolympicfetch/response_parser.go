@@ -6,6 +6,31 @@ import (
 	"github.com/jictyvoo/olympics_data_fetcher/internal/entities"
 )
 
+func (repo OlympicsFetcherImpl) parseAPIResults(
+	competitors []OlympicsAPIResponseCompetitors,
+) (resultComp map[string]entities.Results) {
+	resultComp = make(map[string]entities.Results, len(competitors))
+	for _, competitor := range competitors {
+		competitorResult := entities.Results{
+			Position: competitor.Results.Position,
+			Mark:     competitor.Results.Mark,
+			Irm:      competitor.Results.Irm,
+		}
+
+		conciseResult := competitor.Results.WinnerLoserTie
+		if competitor.Results.MedalType != "" {
+			conciseResult = competitor.Results.MedalType
+		}
+		competitorResult.MedalType = entities.Medal(conciseResult)
+
+		if competitorResult.MedalType != entities.MedalNoMedal || competitorResult.Mark != "" {
+			resultComp[competitor.Code] = competitorResult
+		}
+	}
+
+	return
+}
+
 func (repo OlympicsFetcherImpl) parseAPICompetitors(
 	competitors []OlympicsAPIResponseCompetitors,
 ) (resultComp []entities.OlympicCompetitors) {
@@ -54,6 +79,7 @@ func (repo OlympicsFetcherImpl) parseAPIResp(response OlympicsAPIResponse) []ent
 		}
 
 		newEvent.Competitors = repo.parseAPICompetitors(unit.Competitors)
+		newEvent.ResultPerCompetitor = repo.parseAPIResults(unit.Competitors)
 		events = append(events, newEvent)
 	}
 	return events
