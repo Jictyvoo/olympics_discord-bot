@@ -2,12 +2,11 @@ package services
 
 import (
 	"bytes"
-	"fmt"
 	"log/slog"
 	"text/template"
-	"time"
 
 	"github.com/jictyvoo/olympics_data_fetcher/internal/entities"
+	"github.com/jictyvoo/olympics_data_fetcher/internal/utils"
 )
 
 type (
@@ -21,10 +20,6 @@ type OlympicEventManager struct {
 	notifier       NotifierFacade
 	msgTemplate    *template.Template
 	watchCountries []string
-}
-
-func discRelativeHour(timestamp time.Time) string {
-	return fmt.Sprintf("<t:%d:R>", timestamp.Unix())
 }
 
 func NewOlympicEventManager(
@@ -45,7 +40,7 @@ func NewOlympicEventManager(
 	t, err := template.New("event").Funcs(
 		template.FuncMap{
 			"emojiFlag":        entities.CountryInfo.EmojiFlag,
-			"discRelativeHour": discRelativeHour,
+			"discRelativeHour": utils.DiscordTimestamp,
 		},
 	).Parse(tmpl)
 	if err != nil {

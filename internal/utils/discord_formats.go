@@ -1,5 +1,10 @@
 package utils
 
+import (
+	"fmt"
+	"time"
+)
+
 const gymnasticsIcon = ":person_doing_cartwheel:"
 
 var disciplineIconPerCode = map[string]string{
@@ -17,4 +22,8 @@ var disciplineIconPerCode = map[string]string{
 
 func DisciplineIcon(code string) string {
 	return disciplineIconPerCode[code]
+}
+
+func DiscordTimestamp(timestamp time.Time) string {
+	return fmt.Sprintf("<t:%d:R>", timestamp.Unix())
 }
