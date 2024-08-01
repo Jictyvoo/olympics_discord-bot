@@ -12,7 +12,8 @@ import (
 )
 
 func (r RepoSQLite) SaveEvent(
-	event entities.OlympicEvent, competitorIDs []entities.Identifier,
+	event entities.OlympicEvent,
+	competitorResultsByIDs map[entities.Identifier]*entities.Results,
 ) error {
 	ctx, cancel := r.Ctx()
 	defer cancel()
@@ -51,18 +52,24 @@ func (r RepoSQLite) SaveEvent(
 	defer tx.Rollback()
 
 	dbQuery = dbQuery.WithTx(tx)
-	for _, competitorID := range competitorIDs {
-		err = dbQuery.SaveResults(
-			ctx, dbgen.SaveResultsParams{
-				ID:           uuid.New().String(),
-				CompetitorID: int64(competitorID),
-				EventID:      eventID,
-				Position:     nil,
-				Mark:         nil,
-				MedalType:    nil,
-				Irm:          "",
-			},
-		)
+	for competitorID, result := range competitorResultsByIDs {
+		saveParams := dbgen.SaveResultsParams{
+			ID:           uuid.New().String(),
+			CompetitorID: int64(competitorID),
+			EventID:      eventID,
+			Position:     nil,
+			Mark:         nil,
+			MedalType:    nil,
+			Irm:          "",
+		}
+		if result != nil {
+			saveParams.Position = result.Position
+			saveParams.Mark = result.Mark
+			saveParams.MedalType = result.MedalType
+			saveParams.Irm = result.Irm
+		}
+
+		err = dbQuery.SaveResults(ctx, saveParams)
 		if err != nil {
 			return err
 		}

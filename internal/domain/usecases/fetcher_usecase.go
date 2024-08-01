@@ -16,7 +16,10 @@ type (
 		InsertCountry(country entities.CountryInfo) (entities.Identifier, error)
 		SaveCompetitor(competitors entities.OlympicCompetitors) (entities.Identifier, error)
 		SaveDisciplines(disciplineList []entities.Discipline) error
-		SaveEvent(event entities.OlympicEvent, competitorIDs []entities.Identifier) error
+		SaveEvent(
+			event entities.OlympicEvent,
+			competitorResultsByIDs map[entities.Identifier]*entities.Results,
+		) error
 	}
 )
 
@@ -42,16 +45,23 @@ func (uc FetcherCacheUseCase) FetchDay(date time.Time) (err error) {
 
 	// Start to insert on database
 	for _, event := range events {
-		competitorIDs := make([]entities.Identifier, 0, len(event.Competitors))
+		resultPerCompetitorID := make(
+			map[entities.Identifier]*entities.Results, len(event.Competitors),
+		)
 		for _, competitor := range event.Competitors {
 			var compID entities.Identifier
 			if compID, err = uc.storageRepo.SaveCompetitor(competitor); err != nil {
 				return
 			}
-			competitorIDs = append(competitorIDs, compID)
+
+			var compResult *entities.Results
+			if fetchedResult, ok := event.ResultPerCompetitor[competitor.Code]; ok {
+				compResult = &fetchedResult
+			}
+			resultPerCompetitorID[compID] = compResult
 		}
 
-		if err = uc.storageRepo.SaveEvent(event, competitorIDs); err != nil {
+		if err = uc.storageRepo.SaveEvent(event, resultPerCompetitorID); err != nil {
 			return
 		}
 	}
