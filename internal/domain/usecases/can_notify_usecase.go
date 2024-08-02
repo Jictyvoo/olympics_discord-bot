@@ -1,6 +1,7 @@
 package usecases
 
 import (
+	"log/slog"
 	"time"
 
 	"github.com/jictyvoo/olympics_data_fetcher/internal/entities"
@@ -57,6 +58,13 @@ func (uc CanNotifyUseCase) ShouldNotify(event entities.OlympicEvent) (string, er
 		if notificationRegister.Status != "" {
 			notificationStatus = entities.NotificationStatusCancelled
 		}
+
+		slog.Warn(
+			"Event can't be send",
+			slog.String("sessionCode", event.SessionCode),
+			slog.String("eventKey", eventKey),
+			slog.String("status", string(notificationStatus)),
+		)
 	}
 
 	err = uc.repo.RegisterNotification(
