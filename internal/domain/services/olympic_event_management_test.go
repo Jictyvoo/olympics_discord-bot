@@ -9,7 +9,7 @@ import (
 	"github.com/jictyvoo/olympics_data_fetcher/internal/entities"
 )
 
-func TestGenContent(t *testing.T) {
+func TestOlympicEventManager_GenContent(t *testing.T) {
 	manager, err := NewOlympicEventManager([]string{}, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -54,4 +54,95 @@ func TestGenContent(t *testing.T) {
 
 	content := manager.genContent(event)
 	assert.Equal(t, expectedOutput, content)
+}
+
+func TestOlympicEventManager_NormalizeEvent4Notification(t *testing.T) {
+	tests := []struct {
+		name                string
+		watchCountries      []string
+		event               *entities.OlympicEvent
+		expectedResult      bool
+		expectedCompetitors []entities.OlympicCompetitors
+	}{
+		{
+			name:           "No watched countries",
+			watchCountries: []string{},
+			event: &entities.OlympicEvent{
+				Competitors: []entities.OlympicCompetitors{
+					{Code: "01", Country: entities.CountryInfo{IOCCode: "USA"}},
+				},
+				ResultPerCompetitor: map[string]entities.Results{
+					"USA": {MedalType: entities.MedalGold},
+				},
+			},
+			expectedResult: true,
+		},
+		{
+			name:           "No matching competitors",
+			watchCountries: []string{"BRA"},
+			event: &entities.OlympicEvent{
+				Competitors: []entities.OlympicCompetitors{
+					{Code: "01", Country: entities.CountryInfo{IOCCode: "USA"}},
+				},
+				ResultPerCompetitor: map[string]entities.Results{
+					"USA": {MedalType: entities.MedalGold},
+				},
+			},
+			expectedResult: false,
+		},
+		{
+			name:           "Some matching competitors",
+			watchCountries: []string{"USA"},
+			event: &entities.OlympicEvent{
+				Competitors: []entities.OlympicCompetitors{
+					{Code: "01", Country: entities.CountryInfo{IOCCode: "USA"}},
+					{Code: "02", Country: entities.CountryInfo{IOCCode: "BRA"}},
+				},
+				ResultPerCompetitor: map[string]entities.Results{
+					"USA": {MedalType: entities.MedalGold},
+				},
+			},
+			expectedResult: true,
+		},
+		{
+			name:           "Competitors with results",
+			watchCountries: []string{"BRA"},
+			event: &entities.OlympicEvent{
+				Competitors: []entities.OlympicCompetitors{
+					{Code: "01", Country: entities.CountryInfo{IOCCode: "USA"}},
+					{Code: "02", Country: entities.CountryInfo{IOCCode: "BRA"}},
+				},
+				ResultPerCompetitor: map[string]entities.Results{
+					"01": {MedalType: entities.MedalGold},
+				},
+			},
+			expectedResult: true,
+		},
+		{
+			name:           "Competitors list more than 4",
+			watchCountries: []string{"BRA"},
+			event: &entities.OlympicEvent{
+				Competitors: []entities.OlympicCompetitors{
+					{Code: "01", Country: entities.CountryInfo{IOCCode: "BRA"}},
+					{Code: "02", Country: entities.CountryInfo{IOCCode: "BRA"}},
+					{Code: "03", Country: entities.CountryInfo{IOCCode: "BRA"}},
+					{Code: "04", Country: entities.CountryInfo{IOCCode: "BRA"}},
+					{Code: "05", Country: entities.CountryInfo{IOCCode: "BRA"}},
+				},
+				ResultPerCompetitor: map[string]entities.Results{},
+			},
+			expectedResult: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(
+			tt.name, func(t *testing.T) {
+				oen := OlympicEventManager{watchCountries: tt.watchCountries}
+				result := oen.NormalizeEvent4Notification(tt.event)
+				assert.Equal(t, tt.expectedResult, result)
+				// assert.Equal(t, tt.event.Competitors, tt.expectedCompetitors)
+			},
+		)
+	}
 }

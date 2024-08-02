@@ -69,12 +69,12 @@ competitorLoop:
 				continue competitorLoop
 			}
 		}
-		if _, hasResult := event.ResultPerCompetitor[competitor.Code]; hasResult {
+		if _, hasResult := event.ResultPerCompetitor[competitor.Code]; hasResult && len(newCompetitorsList) < 4 {
 			newCompetitorsList = append(newCompetitorsList, competitor)
 		}
 	}
 
-	if len(event.Competitors) > 2 {
+	if len(event.Competitors) > 4 {
 		event.Competitors = newCompetitorsList
 	}
 
