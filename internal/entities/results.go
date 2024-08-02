@@ -17,10 +17,16 @@ const (
 func Medal(value string) medalType {
 	value = strings.ToLower(value)
 	switch value {
-	case "w":
+	case "w", string(MedalWinner):
 		return MedalWinner
-	case "l":
+	case "l", string(MedalLoser):
 		return MedalLoser
+	case "b", string(MedalBronze):
+		return MedalBronze
+	case "s", string(MedalSilver):
+		return MedalSilver
+	case "g", string(MedalGold):
+		return MedalGold
 	}
 
 	switch {
