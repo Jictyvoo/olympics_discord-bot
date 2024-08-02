@@ -15,6 +15,12 @@ func RegisterUCs(inj remy.Injector) {
 		remy.Factory[usecases.FetcherCacheUseCase],
 		usecases.NewFetcherCacheUseCase,
 	)
+
+	remy.RegisterConstructorArgs1(
+		inj,
+		remy.Factory[usecases.CanNotifyUseCase],
+		usecases.NewCanNotifyUseCase,
+	)
 }
 
 func RegisterServices(inj remy.Injector) {
@@ -26,16 +32,24 @@ func RegisterServices(inj remy.Injector) {
 					cancelChan = make(services.CancelChannel, 1)
 				}
 
-				fetcherUC, err := remy.DoGet[usecases.FetcherCacheUseCase](retriever)
+				loaderRepo, err := remy.DoGet[services.EventNotifierRepository](retriever)
 				if err != nil {
 					return nil, err
 				}
 
-				var loaderRepo services.EventNotifierRepository
-				if loaderRepo, err = remy.DoGet[services.EventNotifierRepository](retriever); err != nil {
+				var fetcherUC usecases.FetcherCacheUseCase
+				if fetcherUC, err = remy.DoGet[usecases.FetcherCacheUseCase](retriever); err != nil {
 					return nil, err
 				}
-				return services.NewEventNotifier(cancelChan, 4*time.Minute, loaderRepo, fetcherUC)
+
+				var canNotifyUC usecases.CanNotifyUseCase
+				if canNotifyUC, err = remy.DoGet[usecases.CanNotifyUseCase](retriever); err != nil {
+					return nil, err
+				}
+				return services.NewEventNotifier(
+					cancelChan, 4*time.Minute,
+					loaderRepo, fetcherUC, canNotifyUC,
+				)
 			},
 		),
 	)

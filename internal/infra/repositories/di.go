@@ -31,6 +31,11 @@ func RegisterRepositories(inj remy.Injector) {
 	)
 	remy.RegisterConstructorArgs1(
 		inj,
+		remy.Factory[usecases.CanNotifyRepository],
+		constructRepoSQLITE[usecases.CanNotifyRepository],
+	)
+	remy.RegisterConstructorArgs1(
+		inj,
 		remy.Factory[services.EventNotifierRepository],
 		constructRepoSQLITE[services.EventNotifierRepository],
 	)
