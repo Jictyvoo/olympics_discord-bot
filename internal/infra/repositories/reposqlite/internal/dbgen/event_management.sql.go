@@ -40,8 +40,7 @@ SELECT e.id                     as event_id,
        CAST(e.end_at AS TEXT)   as end_at,
        e.status
 FROM olympic_events e
-         INNER JOIN
-     olympic_disciplines od on e.discipline_id = od.id
+         INNER JOIN olympic_disciplines od on e.discipline_id = od.id
 WHERE e.id = ?
 `
 
@@ -201,36 +200,4 @@ func (q *Queries) SaveEvent(ctx context.Context, arg SaveEventParams) (int64, er
 	var id int64
 	err := row.Scan(&id)
 	return id, err
-}
-
-const SaveResults = `-- name: SaveResults :exec
-INSERT INTO results (id, competitor_id, event_id, position, mark, medal_type, irm)
-VALUES (?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT (competitor_id, event_id) DO UPDATE SET position   = excluded.position,
-                                                    mark       = excluded.mark,
-                                                    medal_type = excluded.medal_type,
-                                                    irm        = excluded.irm
-`
-
-type SaveResultsParams struct {
-	ID           interface{} `db:"id"`
-	CompetitorID int64       `db:"competitor_id"`
-	EventID      int64       `db:"event_id"`
-	Position     interface{} `db:"position"`
-	Mark         interface{} `db:"mark"`
-	MedalType    interface{} `db:"medal_type"`
-	Irm          string      `db:"irm"`
-}
-
-func (q *Queries) SaveResults(ctx context.Context, arg SaveResultsParams) error {
-	_, err := q.db.ExecContext(ctx, SaveResults,
-		arg.ID,
-		arg.CompetitorID,
-		arg.EventID,
-		arg.Position,
-		arg.Mark,
-		arg.MedalType,
-		arg.Irm,
-	)
-	return err
 }
