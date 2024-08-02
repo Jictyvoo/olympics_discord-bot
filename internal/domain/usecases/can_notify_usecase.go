@@ -49,14 +49,14 @@ func (uc CanNotifyUseCase) ShouldNotify(event entities.OlympicEvent) (string, er
 
 	// Liberate for next checks
 	notificationStatus := entities.NotificationStatusPending
-	if !uc.timeDiffAllowed(event) && event.EndAt.After(time.Now().Add(30*time.Minute)) {
+	if !uc.timeDiffAllowed(event) && event.EndAt.Before(time.Now().Add(30*time.Minute)) {
 		eventKey = ""
+		notificationStatus = entities.NotificationStatusSkipped
 		// Check if it exists on database
 		//goland:noinspection GoDfaErrorMayBeNotNil
 		if notificationRegister.Status != "" {
-			notificationStatus = entities.NotificationStatusSkipped
+			notificationStatus = entities.NotificationStatusCancelled
 		}
-		notificationStatus = entities.NotificationStatusCancelled
 	}
 
 	err = uc.repo.RegisterNotification(
