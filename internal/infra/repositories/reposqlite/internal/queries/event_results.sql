@@ -17,4 +17,5 @@ SELECT r.event_id      AS event_id,
 FROM olympic_events e
          INNER JOIN results r ON e.id = r.event_id
          INNER JOIN competitors c on r.competitor_id = c.id
-WHERE e.id = ?;
+WHERE e.id = ?
+ORDER BY r.mark DESC, r.medal_type;
