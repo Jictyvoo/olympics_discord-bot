@@ -72,10 +72,13 @@ func TestOlympicEventManager_NormalizeEvent4Notification(t *testing.T) {
 					{Code: "01", Country: entities.CountryInfo{IOCCode: "USA"}},
 				},
 				ResultPerCompetitor: map[string]entities.Results{
-					"USA": {MedalType: entities.MedalGold},
+					"01": {MedalType: entities.MedalGold},
 				},
 			},
 			expectedResult: true,
+			expectedCompetitors: []entities.OlympicCompetitors{
+				{Code: "01", Country: entities.CountryInfo{IOCCode: "USA"}},
+			},
 		},
 		{
 			name:           "No matching competitors",
@@ -85,10 +88,13 @@ func TestOlympicEventManager_NormalizeEvent4Notification(t *testing.T) {
 					{Code: "01", Country: entities.CountryInfo{IOCCode: "USA"}},
 				},
 				ResultPerCompetitor: map[string]entities.Results{
-					"USA": {MedalType: entities.MedalGold},
+					"01": {MedalType: entities.MedalGold},
 				},
 			},
 			expectedResult: false,
+			expectedCompetitors: []entities.OlympicCompetitors{
+				{Code: "01", Country: entities.CountryInfo{IOCCode: "USA"}},
+			},
 		},
 		{
 			name:           "Some matching competitors",
@@ -99,10 +105,14 @@ func TestOlympicEventManager_NormalizeEvent4Notification(t *testing.T) {
 					{Code: "02", Country: entities.CountryInfo{IOCCode: "BRA"}},
 				},
 				ResultPerCompetitor: map[string]entities.Results{
-					"USA": {MedalType: entities.MedalGold},
+					"01": {MedalType: entities.MedalGold},
 				},
 			},
 			expectedResult: true,
+			expectedCompetitors: []entities.OlympicCompetitors{
+				{Code: "01", Country: entities.CountryInfo{IOCCode: "USA"}},
+				{Code: "02", Country: entities.CountryInfo{IOCCode: "BRA"}},
+			},
 		},
 		{
 			name:           "Competitors with results",
@@ -117,6 +127,10 @@ func TestOlympicEventManager_NormalizeEvent4Notification(t *testing.T) {
 				},
 			},
 			expectedResult: true,
+			expectedCompetitors: []entities.OlympicCompetitors{
+				{Code: "01", Country: entities.CountryInfo{IOCCode: "USA"}},
+				{Code: "02", Country: entities.CountryInfo{IOCCode: "BRA"}},
+			},
 		},
 		{
 			name:           "Competitors list more than 4",
@@ -124,14 +138,17 @@ func TestOlympicEventManager_NormalizeEvent4Notification(t *testing.T) {
 			event: &entities.OlympicEvent{
 				Competitors: []entities.OlympicCompetitors{
 					{Code: "01", Country: entities.CountryInfo{IOCCode: "BRA"}},
-					{Code: "02", Country: entities.CountryInfo{IOCCode: "BRA"}},
-					{Code: "03", Country: entities.CountryInfo{IOCCode: "BRA"}},
-					{Code: "04", Country: entities.CountryInfo{IOCCode: "BRA"}},
-					{Code: "05", Country: entities.CountryInfo{IOCCode: "BRA"}},
+					{Code: "02", Country: entities.CountryInfo{IOCCode: "POR"}},
+					{Code: "03", Country: entities.CountryInfo{IOCCode: "FRE"}},
+					{Code: "04", Country: entities.CountryInfo{IOCCode: "ITA"}},
+					{Code: "05", Country: entities.CountryInfo{IOCCode: "JPN"}},
 				},
 				ResultPerCompetitor: map[string]entities.Results{},
 			},
 			expectedResult: true,
+			expectedCompetitors: []entities.OlympicCompetitors{
+				{Code: "01", Country: entities.CountryInfo{IOCCode: "BRA"}},
+			},
 		},
 	}
 
@@ -141,7 +158,7 @@ func TestOlympicEventManager_NormalizeEvent4Notification(t *testing.T) {
 				oen := OlympicEventManager{watchCountries: tt.watchCountries}
 				result := oen.NormalizeEvent4Notification(tt.event)
 				assert.Equal(t, tt.expectedResult, result)
-				// assert.Equal(t, tt.event.Competitors, tt.expectedCompetitors)
+				assert.Equal(t, tt.expectedCompetitors, tt.event.Competitors)
 			},
 		)
 	}
