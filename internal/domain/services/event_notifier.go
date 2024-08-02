@@ -8,6 +8,7 @@ import (
 
 	"github.com/jictyvoo/olympics_data_fetcher/internal/domain/usecases"
 	"github.com/jictyvoo/olympics_data_fetcher/internal/entities"
+	"github.com/jictyvoo/olympics_data_fetcher/internal/utils"
 )
 
 type (
@@ -95,13 +96,13 @@ func (en *EventNotifier) updateDisciplines() error {
 	return nil
 }
 
-func (en *EventNotifier) fetchRemainingDays(from time.Time) {
+func (en *EventNotifier) fetchRemainingDays(from time.Time, all bool) {
 	en.mutex.Lock() // Prevent sqlite multi access
 	defer en.mutex.Unlock()
 
 	startDate := time.Date(from.Year(), from.Month(), from.Day(), 0, 0, 0, 0, time.UTC)
 	endDate := startDate.Add(48 * time.Hour)
-	if endDate.After(en.olympicsEndDate) {
+	if all || endDate.After(en.olympicsEndDate) {
 		endDate = en.olympicsEndDate
 	}
 
@@ -115,7 +116,7 @@ func (en *EventNotifier) fetchRemainingDays(from time.Time) {
 
 func (en *EventNotifier) fetcherThread() {
 	// Run one time since beginning
-	en.fetchRemainingDays(time.Date(2024, time.July, 24, 0, 0, 0, 0, time.UTC))
+	en.fetchRemainingDays(time.Date(2024, time.July, 24, 0, 0, 0, 0, time.UTC), true)
 	ticker := time.NewTicker(en.checkInterval)
 	for {
 		select {
@@ -123,7 +124,7 @@ func (en *EventNotifier) fetcherThread() {
 			ticker.Stop()
 			return
 		case <-ticker.C:
-			en.fetchRemainingDays(time.Now())
+			en.fetchRemainingDays(time.Now(), false)
 		}
 	}
 }
@@ -133,6 +134,12 @@ func (en *EventNotifier) taskExecution(event entities.OlympicEvent) {
 	notifyStatus := entities.NotificationStatusSent
 	if !en.cronState.taskExecution(event) {
 		notifyStatus = entities.NotificationStatusFailed
+	} else {
+		slog.Info(
+			"Job for notification sent",
+			slog.String("eventHash", event.SHAIdentifier()),
+			slog.Time("startTime", event.StartAt),
+		)
 	}
 
 	// Update status on database
@@ -172,18 +179,12 @@ func (en *EventNotifier) checkUpdateJobs() error {
 		}
 
 		// Check again for the 20min notification
-		/*startDiff := utils.AbsoluteNum(event.StartAt.Sub(time.Now()))
-		if startDiff <= 20*time.Minute {
+		startDiff := utils.AbsoluteNum(event.StartAt.Sub(time.Now()))
+		endDiff := utils.AbsoluteNum(event.EndAt.Sub(time.Now()))
+		if startDiff <= 20*time.Minute || endDiff <= time.Hour {
 			en.taskExecution(event)
-		}*/
-		en.taskExecution(event)
-
-		slog.Info(
-			"Job for notification sent",
-			slog.String("eventHash", event.SHAIdentifier()),
-			slog.Time("startTime", event.StartAt),
-		)
-
+		}
+		// en.taskExecution(event)
 	}
 
 	return errors.Join(errList...)

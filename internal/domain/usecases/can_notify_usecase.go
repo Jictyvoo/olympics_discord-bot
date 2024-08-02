@@ -49,7 +49,7 @@ func (uc CanNotifyUseCase) ShouldNotify(event entities.OlympicEvent) (string, er
 
 	// Liberate for next checks
 	notificationStatus := entities.NotificationStatusPending
-	if !uc.timeDiffAllowed(event) {
+	if !uc.timeDiffAllowed(event) && event.EndAt.After(time.Now().Add(30*time.Minute)) {
 		eventKey = ""
 		// Check if it exists on database
 		//goland:noinspection GoDfaErrorMayBeNotNil

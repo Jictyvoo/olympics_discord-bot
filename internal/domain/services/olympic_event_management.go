@@ -57,11 +57,8 @@ func (oen OlympicEventManager) NormalizeEvent4Notification(event *entities.Olymp
 	if len(oen.watchCountries) <= 0 {
 		return true
 	}
-	newCompetitorsList := event.Competitors
-	if len(event.Competitors) > 0 {
-		newCompetitorsList = make([]entities.OlympicCompetitors, 0, len(event.Competitors))
-	}
 
+	newCompetitorsList := make([]entities.OlympicCompetitors, 0, len(event.Competitors))
 	var foundCountry bool
 competitorLoop:
 	for _, competitor := range event.Competitors {
@@ -77,7 +74,7 @@ competitorLoop:
 		}
 	}
 
-	if len(newCompetitorsList) < len(event.Competitors) {
+	if len(event.Competitors) > 2 {
 		event.Competitors = newCompetitorsList
 	}
 
