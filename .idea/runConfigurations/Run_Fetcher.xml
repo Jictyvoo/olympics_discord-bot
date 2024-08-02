@@ -1,0 +1,15 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Run Fetcher" type="GoApplicationRunConfiguration" factoryName="Go Application">
+    <module name="olympics_data_fetcher" />
+    <working_directory value="$PROJECT_DIR$" />
+    <envs>
+      <env name="API_LOCALE" value="POR" />
+      <env name="WATCH_COUNTRIES" value="BRA" />
+    </envs>
+    <kind value="PACKAGE" />
+    <package value="github.com/jictyvoo/olympics_data_fetcher/cmd/fetcher" />
+    <directory value="$PROJECT_DIR$" />
+    <filePath value="$PROJECT_DIR$/cmd/fetcher/main.go" />
+    <method v="2" />
+  </configuration>
+</component>
