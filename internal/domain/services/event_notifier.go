@@ -180,8 +180,8 @@ func (en *EventNotifier) checkUpdateJobs() error {
 
 		// Check again for the 20min notification
 		startDiff := utils.AbsoluteNum(event.StartAt.Sub(time.Now()))
-		endDiff := utils.AbsoluteNum(event.EndAt.Sub(time.Now()))
-		if startDiff <= 20*time.Minute || endDiff <= time.Hour {
+		if startDiff <= 20*time.Minute || event.Status == entities.StatusFinished ||
+			len(event.ResultPerCompetitor) > 0 {
 			en.taskExecution(event)
 		}
 		// en.taskExecution(event)

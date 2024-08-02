@@ -47,6 +47,7 @@ func main() {
 	}
 	bot := NewOlympicsBot(notifierServ, conf.Runtime.WatchCountries)
 	discClient.AddHandler(bot.ReadyHandler)
+	// discClient.AddHandler(bot.MessagesHandler)
 	discClient.Identify.Intents = discordgo.MakeIntent(
 		discordgo.IntentsGuildMessages | discordgo.IntentsMessageContent,
 	)
