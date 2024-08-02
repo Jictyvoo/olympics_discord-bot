@@ -71,15 +71,20 @@ func NewDirectoryCache(rootPath string, cacheDuration time.Duration) (*Directory
 func (d *DirectoryCache) subFolderName() string {
 	now := time.Now()
 	subFolderName := now.Format("20060102")
+	day := now.Day()
+	hour := now.Hour()
 	var divisionResult int
 	switch {
-
 	case d.cacheDuration < time.Hour:
 		divisionResult = now.Minute() / int(d.cacheDuration.Minutes())
 	case d.cacheDuration < 24*time.Hour:
 		divisionResult = now.Hour() / int(d.cacheDuration.Hours())
+		hour = 0
 	}
-	subFolderName += d.cacheDuration.String() + "__" + strconv.Itoa(divisionResult)
+	subFolderName += d.cacheDuration.String() +
+		"#" + strconv.Itoa(day) +
+		"@" + strconv.Itoa(hour) +
+		"__" + strconv.Itoa(divisionResult)
 
 	return subFolderName
 }
