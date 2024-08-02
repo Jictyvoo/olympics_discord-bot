@@ -27,8 +27,16 @@ func TestGenContent(t *testing.T) {
 		StartAt:   time.Date(2024, 7, 30, 18, 0, 0, 0, time.UTC),
 		EndAt:     time.Date(2024, 7, 30, 18, 10, 0, 0, time.UTC),
 		Competitors: []entities.OlympicCompetitors{
-			{Country: entities.CountryInfo{ISOCode: [2]string{"us"}}, Name: "John Doe", Age: 25},
-			{Country: entities.CountryInfo{ISOCode: [2]string{"ca"}}, Name: "Alex Smith", Age: 28},
+			{Country: entities.CountryInfo{ISOCode: [2]string{"us"}}, Name: "John Doe", Code: "25"},
+			{
+				Country: entities.CountryInfo{ISOCode: [2]string{"ca"}},
+				Name:    "Alex Smith",
+				Code:    "28",
+			},
+		},
+		ResultPerCompetitor: map[string]entities.Results{
+			"25": {MedalType: entities.MedalLoser},
+			"28": {MedalType: entities.MedalWinner},
 		},
 	}
 
@@ -40,8 +48,8 @@ func TestGenContent(t *testing.T) {
 **Start:** <t:1722362400:R>
 **End:** <t:1722363000:R>
 **Competitors:**
-- :flag_us: John Doe, Age: 25
-- :flag_ca: Alex Smith, Age: 28
+- :flag_us: John Doe (loser)
+- :flag_ca: Alex Smith (winner)
 `
 
 	content := manager.genContent(event)

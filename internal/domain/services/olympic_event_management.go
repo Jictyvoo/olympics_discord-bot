@@ -34,7 +34,7 @@ func NewOlympicEventManager(
 **Start:** {{discRelativeHour .StartAt}}
 **End:** {{discRelativeHour .EndAt}}
 **Competitors:**
-{{range .Competitors}}- :{{emojiFlag .Country}}: {{.Name}}, Age: {{.Age}}
+{{range .Competitors}}- :{{emojiFlag .Country}}: {{.Name}}{{with $result := index $.ResultPerCompetitor .Code}}{{if $result.MedalType}} ({{$result.MedalType}}){{end}}{{end}}
 {{end}}`
 
 	t, err := template.New("event").Funcs(
@@ -53,20 +53,35 @@ func NewOlympicEventManager(
 	}, nil
 }
 
-func (oen OlympicEventManager) ShouldNotify(event entities.OlympicEvent) bool {
+func (oen OlympicEventManager) NormalizeEvent4Notification(event *entities.OlympicEvent) bool {
 	if len(oen.watchCountries) <= 0 {
 		return true
 	}
+	newCompetitorsList := event.Competitors
+	if len(event.Competitors) > 0 {
+		newCompetitorsList = make([]entities.OlympicCompetitors, 0, len(event.Competitors))
+	}
 
-	for _, competitors := range event.Competitors {
+	var foundCountry bool
+competitorLoop:
+	for _, competitor := range event.Competitors {
 		for _, watch := range oen.watchCountries {
-			if competitors.Country.IsThis(watch) {
-				return true
+			if competitor.Country.IsThis(watch) {
+				foundCountry = true
+				newCompetitorsList = append(newCompetitorsList, competitor)
+				continue competitorLoop
 			}
+		}
+		if _, hasResult := event.ResultPerCompetitor[competitor.Code]; hasResult {
+			newCompetitorsList = append(newCompetitorsList, competitor)
 		}
 	}
 
-	return false
+	if len(newCompetitorsList) < len(event.Competitors) {
+		event.Competitors = newCompetitorsList
+	}
+
+	return foundCountry
 }
 
 func (oen OlympicEventManager) genContent(event entities.OlympicEvent) string {
@@ -83,7 +98,7 @@ func (oen OlympicEventManager) genContent(event entities.OlympicEvent) string {
 
 func (oen OlympicEventManager) OnEvent(event entities.OlympicEvent) {
 	// Check if it should notify the event
-	if !oen.ShouldNotify(event) {
+	if !oen.NormalizeEvent4Notification(&event) {
 		return
 	}
 
