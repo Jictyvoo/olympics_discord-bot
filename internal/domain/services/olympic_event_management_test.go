@@ -35,7 +35,7 @@ func TestGenContent(t *testing.T) {
 			},
 		},
 		ResultPerCompetitor: map[string]entities.Results{
-			"25": {MedalType: entities.MedalLoser},
+			"25": {MedalType: entities.MedalLoser, Mark: "52.5"},
 			"28": {MedalType: entities.MedalWinner},
 		},
 	}
@@ -48,7 +48,7 @@ func TestGenContent(t *testing.T) {
 **Start:** <t:1722362400:R>
 **End:** <t:1722363000:R>
 **Competitors:**
-- :flag_us: John Doe (loser)
+- :flag_us: John Doe #52.5 (loser)
 - :flag_ca: Alex Smith (winner)
 `
 

@@ -34,7 +34,7 @@ func NewOlympicEventManager(
 **Start:** {{discRelativeHour .StartAt}}
 **End:** {{discRelativeHour .EndAt}}
 **Competitors:**
-{{range .Competitors}}- :{{emojiFlag .Country}}: {{.Name}}{{with $result := index $.ResultPerCompetitor .Code}}{{if $result.MedalType}} ({{$result.MedalType}}){{end}}{{end}}
+{{range .Competitors}}- :{{emojiFlag .Country}}: {{.Name}}{{with $result := index $.ResultPerCompetitor .Code}}{{if $result.Mark}} #{{$result.Mark}}{{end}}{{if $result.MedalType}} ({{$result.MedalType}}){{end}}{{end}}
 {{end}}`
 
 	t, err := template.New("event").Funcs(
