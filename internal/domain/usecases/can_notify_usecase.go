@@ -47,7 +47,8 @@ func (uc CanNotifyUseCase) ShouldNotify(event entities.OlympicEvent) (string, er
 	// Check if it exists on database
 	notificationRegister, _ := uc.repo.CheckSentNotifications(event.ID, eventKey)
 	// Check if it has the pending status
-	if notificationRegister.Status != entities.NotificationStatusPending &&
+	if notificationRegister.Status != "" &&
+		notificationRegister.Status != entities.NotificationStatusPending &&
 		notificationRegister.Status != entities.NotificationStatusFailed {
 		slog.Warn(
 			"Ignoring event, because it already has a notification registered",
