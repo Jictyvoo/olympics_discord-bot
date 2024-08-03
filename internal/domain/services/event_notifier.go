@@ -96,7 +96,9 @@ func (en *EventNotifier) updateDisciplines() error {
 	return nil
 }
 
-func (en *EventNotifier) fetchRemainingDays(from time.Time, all bool) {
+func (en *EventNotifier) fetchRemainingDays(
+	from time.Time, all bool,
+) (todayEndAt time.Time, tomorrowStartAt time.Time) {
 	en.mutex.Lock() // Prevent sqlite multi access
 	defer en.mutex.Unlock()
 
@@ -116,11 +118,35 @@ func (en *EventNotifier) fetchRemainingDays(from time.Time, all bool) {
 		}
 		fetchedEvents = append(fetchedEvents, lastFetchedEvents)
 	}
+
+	if len(fetchedEvents) <= 0 {
+		return
+	}
+
+	first := fetchedEvents[0]
+	last := fetchedEvents[len(fetchedEvents)-1]
+	for _, event := range first {
+		if event.EndAt.After(todayEndAt) {
+			todayEndAt = event.EndAt
+		}
+	}
+
+	tomorrowStartAt = endDate.Add(360 * 24 * time.Hour)
+	for _, event := range last {
+		if event.StartAt.Before(tomorrowStartAt) {
+			tomorrowStartAt = event.StartAt
+		}
+	}
+
+	utils.EnsureTime(&tomorrowStartAt, 24*time.Hour)
+	return
 }
 
 func (en *EventNotifier) fetcherThread() {
 	// Run one time since beginning
 	en.fetchRemainingDays(time.Date(2024, time.July, 24, 0, 0, 0, 0, time.UTC), true)
+
+	var restoreInterval bool
 	ticker := time.NewTicker(en.checkInterval)
 	for {
 		select {
@@ -128,7 +154,16 @@ func (en *EventNotifier) fetcherThread() {
 			ticker.Stop()
 			return
 		case <-ticker.C:
-			en.fetchRemainingDays(time.Now(), false)
+			if restoreInterval {
+				ticker.Reset(en.checkInterval)
+				restoreInterval = false
+			}
+			todayEndAt, tomorrowStartAt := en.fetchRemainingDays(time.Now(), false)
+			if now := time.Now(); now.After(todayEndAt) {
+				slog.Info("Start to sleeping until next day event")
+				ticker.Reset(tomorrowStartAt.Add(-time.Hour >> 1).Sub(now))
+				restoreInterval = true
+			}
 		}
 	}
 }
