@@ -35,7 +35,7 @@ func main() {
 			continue
 		}
 
-		if err = uc.FetchDay(date); err != nil {
+		if _, err = uc.FetchDay(date); err != nil {
 			slog.Error("Error fetching data from day", slog.String("error", err.Error()))
 		}
 	}

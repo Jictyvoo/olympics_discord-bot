@@ -90,7 +90,7 @@ func (en *EventNotifier) updateDisciplines() error {
 	en.mutex.Lock()
 	defer en.mutex.Unlock()
 
-	if err := en.useCases.FetchDisciplines(); err != nil {
+	if _, err := en.useCases.FetchDisciplines(); err != nil {
 		return err
 	}
 	return nil
@@ -106,11 +106,15 @@ func (en *EventNotifier) fetchRemainingDays(from time.Time, all bool) {
 		endDate = en.olympicsEndDate
 	}
 
+	fetchedEvents := make([][]entities.OlympicEvent, 0, 2)
 	for date := startDate; date.Before(endDate); date = date.Add(24 * time.Hour) {
 		slog.Info("Start to fetch and save data for event", slog.Time("date", date))
-		if err := en.useCases.FetcherCacheUseCase.FetchDay(date); err != nil {
+		lastFetchedEvents, err := en.useCases.FetcherCacheUseCase.FetchDay(date)
+		if err != nil {
 			slog.Error("Error fetching data from day", slog.String("error", err.Error()))
+			continue
 		}
+		fetchedEvents = append(fetchedEvents, lastFetchedEvents)
 	}
 }
 

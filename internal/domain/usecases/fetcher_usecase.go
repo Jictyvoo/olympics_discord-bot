@@ -35,9 +35,8 @@ func NewFetcherCacheUseCase(
 	return FetcherCacheUseCase{fetcherRepo: fetcherRepo, storageRepo: storageRepo}
 }
 
-func (uc FetcherCacheUseCase) FetchDay(date time.Time) (err error) {
+func (uc FetcherCacheUseCase) FetchDay(date time.Time) (events []entities.OlympicEvent, err error) {
 	// Start fetching all elements
-	var events []entities.OlympicEvent
 	events, err = uc.fetcherRepo.FetchDataFromDay(date)
 	if err != nil {
 		return
@@ -69,9 +68,8 @@ func (uc FetcherCacheUseCase) FetchDay(date time.Time) (err error) {
 	return
 }
 
-func (uc FetcherCacheUseCase) FetchDisciplines() (err error) {
+func (uc FetcherCacheUseCase) FetchDisciplines() (disciplines []entities.Discipline, err error) {
 	// Start fetching all elements
-	var disciplines []entities.Discipline
 	if disciplines, err = uc.fetcherRepo.FetchDisciplines(); err != nil {
 		return
 	}
