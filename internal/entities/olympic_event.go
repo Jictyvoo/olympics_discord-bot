@@ -43,15 +43,6 @@ const (
 
 type UnitType string
 
-type OlympicCompetitors struct {
-	ID          Identifier
-	Name        string
-	Code        string
-	Age         uint8
-	CountryCode string
-	Country     CountryInfo
-}
-
 type OlympicEvent struct {
 	ID                  Identifier
 	EventName           string
