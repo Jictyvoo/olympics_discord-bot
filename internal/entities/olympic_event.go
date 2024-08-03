@@ -1,13 +1,10 @@
 package entities
 
 import (
-	"bytes"
-	"crypto/sha256"
-	"encoding/gob"
-	"fmt"
-	"hash/fnv"
-	"strconv"
+	"slices"
 	"time"
+
+	"github.com/jictyvoo/olympics_data_fetcher/internal/utils"
 )
 
 type (
@@ -58,36 +55,28 @@ type OlympicEvent struct {
 	ResultPerCompetitor map[string]Results
 }
 
-func (oe OlympicEvent) Hash() (string, error) {
-	h := fnv.New64a() // Create a new FNV-1a 64-bit hash instance
-
-	// Serialize POSMessageConfig into gob
-	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
-	if err := enc.Encode(oe); err != nil {
-		return "", err
-	}
-
-	// Write the serialized bytes to the hash
-	if _, err := h.Write(buf.Bytes()); err != nil {
-		return "", err
-	}
-
-	// Return the resulting hash value as a hexadecimal string
-	return fmt.Sprintf("%x", h.Sum64()), nil
-}
-
 func (oe OlympicEvent) SHAIdentifier() string {
-	if hash, err := oe.Hash(); err == nil && len(hash) > 0 {
+	competitorsResults := make([]utils.KeyValueEntry[Results], len(oe.ResultPerCompetitor))
+	var index int
+	for code, compResult := range oe.ResultPerCompetitor {
+		competitorsResults[index] = utils.KeyValueEntry[Results]{
+			Key:   code,
+			Value: compResult,
+		}
+		index++
+	}
+
+	oe.ResultPerCompetitor = nil
+	var comparator struct {
+		OlympicEvent
+		ResultsPerCompetitor []utils.KeyValueEntry[Results]
+	}
+	comparator.OlympicEvent = oe
+	comparator.ResultsPerCompetitor = competitorsResults
+	slices.SortFunc(comparator.ResultsPerCompetitor, utils.KeyValueEntry[Results].Compare)
+	if hash, err := utils.Hash(comparator); err == nil && len(hash) > 0 {
 		return hash
 	}
 
-	var buffer bytes.Buffer
-	buffer.Write([]byte(oe.Discipline.Name))
-	buffer.Write([]byte(strconv.Itoa(int(oe.Gender))))
-	buffer.Write([]byte(oe.Phase))
-	buffer.Write([]byte(oe.SessionCode))
-
-	identifier := sha256.Sum256([]byte(oe.EventName))
-	return string(identifier[:])
+	return ""
 }
