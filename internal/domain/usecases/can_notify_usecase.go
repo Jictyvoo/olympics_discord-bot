@@ -37,15 +37,22 @@ func (uc CanNotifyUseCase) timeDiffAllowed(event entities.OlympicEvent) bool {
 }
 
 func (uc CanNotifyUseCase) ShouldNotify(event entities.OlympicEvent) (string, error) {
+	// Remove ongoing results from event to prevent sending multiple ongoing notifications
+	if event.Status != entities.StatusFinished && time.Now().Before(event.EndAt) {
+		event.ResultPerCompetitor = map[string]entities.Results{}
+	}
+
 	eventKey := event.SHAIdentifier()
 	// Check if it exists on database
-	notificationRegister, err := uc.repo.CheckSentNotifications(event.ID, eventKey)
-	if err == nil && notificationRegister.ID != 0 {
-		// Check if it has the pending status
-		if notificationRegister.Status != entities.NotificationStatusPending &&
-			notificationRegister.Status != entities.NotificationStatusFailed {
-			return "", nil
-		}
+	notificationRegister, _ := uc.repo.CheckSentNotifications(event.ID, eventKey)
+	// Check if it has the pending status
+	if notificationRegister.Status != entities.NotificationStatusPending &&
+		notificationRegister.Status != entities.NotificationStatusFailed {
+		slog.Warn(
+			"Ignoring event, because it already has a notification registered",
+			slog.Any("notification", notificationRegister),
+		)
+		return "", nil
 	}
 
 	// Liberate for next checks
@@ -53,8 +60,8 @@ func (uc CanNotifyUseCase) ShouldNotify(event entities.OlympicEvent) (string, er
 	if !uc.timeDiffAllowed(event) && event.EndAt.Before(time.Now().Add(30*time.Minute)) {
 		eventKey = ""
 		notificationStatus = entities.NotificationStatusSkipped
+
 		// Check if it exists on database
-		//goland:noinspection GoDfaErrorMayBeNotNil
 		if notificationRegister.Status != "" {
 			notificationStatus = entities.NotificationStatusCancelled
 		}
@@ -67,7 +74,7 @@ func (uc CanNotifyUseCase) ShouldNotify(event entities.OlympicEvent) (string, er
 		)
 	}
 
-	err = uc.repo.RegisterNotification(
+	err := uc.repo.RegisterNotification(
 		entities.Notification{
 			EventID:       event.ID,
 			Status:        notificationStatus,
