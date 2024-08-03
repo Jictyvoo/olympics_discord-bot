@@ -18,27 +18,28 @@ type CanNotifyRepository interface {
 type CanNotifyUseCase struct {
 	repo            CanNotifyRepository
 	allowedTimeDiff time.Duration
+	timeNow         func() time.Time
 }
 
 func NewCanNotifyUseCase(
 	repo CanNotifyRepository,
 ) CanNotifyUseCase {
 	allowedTimeDiff := (2 * time.Hour) + (30 * time.Minute)
-	return CanNotifyUseCase{repo: repo, allowedTimeDiff: allowedTimeDiff}
+	return CanNotifyUseCase{repo: repo, allowedTimeDiff: allowedTimeDiff, timeNow: time.Now}
 }
 
 func (uc CanNotifyUseCase) timeDiffAllowed(event entities.OlympicEvent) bool {
-	now := time.Now()
+	now := uc.timeNow()
 	startDiff := utils.AbsoluteNum(event.StartAt.Sub(now))
 	endDiff := utils.AbsoluteNum(event.EndAt.Sub(now))
 
 	// Check if it is inside the correct element
-	return endDiff+startDiff < (uc.allowedTimeDiff << 1)
+	return endDiff+startDiff <= (uc.allowedTimeDiff << 1)
 }
 
 func (uc CanNotifyUseCase) ShouldNotify(event entities.OlympicEvent) (string, error) {
 	// Remove ongoing results from event to prevent sending multiple ongoing notifications
-	if event.Status != entities.StatusFinished && time.Now().Before(event.EndAt) {
+	if event.Status != entities.StatusFinished && uc.timeNow().Before(event.EndAt) {
 		event.ResultPerCompetitor = map[string]entities.Results{}
 	}
 
@@ -57,7 +58,7 @@ func (uc CanNotifyUseCase) ShouldNotify(event entities.OlympicEvent) (string, er
 
 	// Liberate for next checks
 	notificationStatus := entities.NotificationStatusPending
-	if !uc.timeDiffAllowed(event) && event.EndAt.Before(time.Now().Add(30*time.Minute)) {
+	if !uc.timeDiffAllowed(event) && event.EndAt.Before(uc.timeNow().Add(30*time.Minute)) {
 		eventKey = ""
 		notificationStatus = entities.NotificationStatusSkipped
 
