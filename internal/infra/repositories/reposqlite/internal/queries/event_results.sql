@@ -19,3 +19,11 @@ FROM olympic_events e
          INNER JOIN competitors c on r.competitor_id = c.id
 WHERE e.id = ?
 ORDER BY r.mark DESC, r.medal_type;
+
+
+-- name: DeleteResultsWithCompetitors :exec
+-- noinspection SqlResolve @ any/"sqlc"
+DELETE
+FROM results
+WHERE results.event_id = ?
+  AND results.competitor_id NOT IN (sqlc.slice('competitor_ids'))

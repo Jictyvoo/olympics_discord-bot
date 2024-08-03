@@ -7,7 +7,37 @@ package dbgen
 
 import (
 	"context"
+	"strings"
 )
+
+const DeleteResultsWithCompetitors = `-- name: DeleteResultsWithCompetitors :exec
+DELETE
+FROM results
+WHERE results.event_id = ?
+  AND results.competitor_id NOT IN (/*SLICE:competitor_ids*/?)
+`
+
+type DeleteResultsWithCompetitorsParams struct {
+	EventID       int64   `db:"event_id"`
+	CompetitorIds []int64 `db:"competitor_ids"`
+}
+
+// noinspection SqlResolve @ any/"sqlc"
+func (q *Queries) DeleteResultsWithCompetitors(ctx context.Context, arg DeleteResultsWithCompetitorsParams) error {
+	query := DeleteResultsWithCompetitors
+	var queryParams []interface{}
+	queryParams = append(queryParams, arg.EventID)
+	if len(arg.CompetitorIds) > 0 {
+		for _, v := range arg.CompetitorIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:competitor_ids*/?", strings.Repeat(",?", len(arg.CompetitorIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:competitor_ids*/?", "NULL", 1)
+	}
+	_, err := q.db.ExecContext(ctx, query, queryParams...)
+	return err
+}
 
 const GetEventResults = `-- name: GetEventResults :many
 SELECT r.event_id      AS event_id,

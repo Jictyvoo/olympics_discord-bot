@@ -21,8 +21,10 @@ func (r RepoSQLite) saveResultsCtx(
 	}
 	defer tx.Rollback()
 
+	competitorIDs := make([]int64, 0, len(competitorResultsByIDs))
 	dbQuery = dbQuery.WithTx(tx)
 	for competitorID, result := range competitorResultsByIDs {
+		competitorIDs = append(competitorIDs, int64(competitorID))
 		saveParams := dbgen.SaveResultsParams{
 			ID:           uuid.New().String(),
 			CompetitorID: int64(competitorID),
@@ -45,6 +47,14 @@ func (r RepoSQLite) saveResultsCtx(
 		}
 	}
 
+	err = dbQuery.DeleteResultsWithCompetitors(
+		ctx, dbgen.DeleteResultsWithCompetitorsParams{
+			EventID: eventID, CompetitorIds: competitorIDs,
+		},
+	)
+	if err != nil {
+		return err
+	}
 	return tx.Commit()
 }
 
