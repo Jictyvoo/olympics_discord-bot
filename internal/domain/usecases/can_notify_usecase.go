@@ -37,13 +37,16 @@ func (uc CanNotifyUseCase) timeDiffAllowed(event entities.OlympicEvent) bool {
 	return endDiff+startDiff <= (uc.allowedTimeDiff << 1)
 }
 
-func (uc CanNotifyUseCase) ShouldNotify(event entities.OlympicEvent) (string, error) {
+func (uc CanNotifyUseCase) ShouldNotify(
+	event entities.OlympicEvent,
+) (validatedKey string, err error) {
 	// Remove ongoing results from event to prevent sending multiple ongoing notifications
 	if event.Status != entities.StatusFinished && uc.timeNow().Before(event.EndAt) {
 		event.ResultPerCompetitor = map[string]entities.Results{}
 	}
 
 	eventKey := event.SHAIdentifier()
+	validatedKey = eventKey
 	// Check if it exists on database
 	notificationRegister, _ := uc.repo.CheckSentNotifications(event.ID, eventKey)
 	// Check if it has the pending status
@@ -60,7 +63,7 @@ func (uc CanNotifyUseCase) ShouldNotify(event entities.OlympicEvent) (string, er
 	// Liberate for next checks
 	notificationStatus := entities.NotificationStatusPending
 	if !uc.timeDiffAllowed(event) && event.EndAt.Before(uc.timeNow().Add(30*time.Minute)) {
-		eventKey = ""
+		validatedKey = ""
 		notificationStatus = entities.NotificationStatusSkipped
 
 		// Check if it exists on database
@@ -76,13 +79,13 @@ func (uc CanNotifyUseCase) ShouldNotify(event entities.OlympicEvent) (string, er
 		)
 	}
 
-	err := uc.repo.RegisterNotification(
+	err = uc.repo.RegisterNotification(
 		entities.Notification{
 			EventID:       event.ID,
 			Status:        notificationStatus,
-			EventChecksum: event.SHAIdentifier(),
+			EventChecksum: eventKey,
 		},
 	)
 
-	return eventKey, err
+	return
 }
