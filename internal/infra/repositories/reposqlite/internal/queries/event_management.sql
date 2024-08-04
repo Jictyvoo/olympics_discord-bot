@@ -13,9 +13,10 @@ RETURNING id;
 
 -- name: SaveEvent :one
 INSERT INTO olympic_events (event_name, discipline_id, phase, gender, session_code,
-                            start_at, end_at, status, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, DATETIME('now'), DATETIME('now'))
+                            start_at, end_at, has_medal, status, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, DATETIME('now'), DATETIME('now'))
 ON CONFLICT (event_name, discipline_id, phase, gender, session_code) DO UPDATE SET status=excluded.status,
+                                                                                   has_medal=excluded.has_medal,
                                                                                    start_at=excluded.start_at,
                                                                                    end_at=excluded.end_at,
                                                                                    updated_at=excluded.updated_at
@@ -30,6 +31,7 @@ SELECT e.id                     as event_id,
        e.phase,
        e.gender,
        e.session_code,
+       e.has_medal,
        CAST(e.start_at AS TEXT) as start_at,
        CAST(e.end_at AS TEXT)   as end_at,
        e.status
@@ -49,6 +51,7 @@ SELECT e.id                     as event_id,
        e.phase,
        e.gender,
        e.session_code,
+       e.has_medal,
        CAST(e.start_at AS TEXT) as start_at,
        CAST(e.end_at AS TEXT)   as end_at,
        e.status
