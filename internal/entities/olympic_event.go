@@ -2,6 +2,8 @@ package entities
 
 import (
 	"slices"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jictyvoo/olympics_data_fetcher/internal/utils"
@@ -57,6 +59,7 @@ type OlympicEvent struct {
 	ResultPerCompetitor map[string]Results
 }
 
+//goland:noinspection GoMixedReceiverTypes
 func (oe OlympicEvent) SHAIdentifier() string {
 	competitorsResults := make([]utils.KeyValueEntry[Results], len(oe.ResultPerCompetitor))
 	var index int
@@ -81,4 +84,39 @@ func (oe OlympicEvent) SHAIdentifier() string {
 	}
 
 	return ""
+}
+
+//goland:noinspection GoMixedReceiverTypes
+func (oe *OlympicEvent) Normalize() {
+	oe.StartAt = oe.StartAt.In(time.UTC)
+	oe.EndAt = oe.EndAt.In(time.UTC)
+	slices.SortFunc(
+		oe.Competitors, func(a, b OlympicCompetitors) int {
+			var results struct{ a, b Results }
+			results.a = oe.ResultPerCompetitor[a.Code]
+			results.b = oe.ResultPerCompetitor[b.Code]
+			if results.a.MedalType != MedalNoMedal || results.b.MedalType != MedalNoMedal {
+				return results.b.MedalType.CompareTo(results.a.MedalType)
+			}
+			if results.a.Mark != "" || results.b.Mark != "" {
+				return compareMark(results.b.Mark, results.a.Mark)
+			}
+
+			return strings.Compare(a.Code, b.Code)
+		},
+	)
+}
+
+func compareMark(a, b string) int {
+	// Try to compare as float
+	var (
+		fA, fB float64
+		err    [2]error
+	)
+	fA, err[0] = strconv.ParseFloat(a, 64)
+	fB, err[1] = strconv.ParseFloat(b, 64)
+	if err[0] == nil && err[1] == nil {
+		return int(fA - fB)
+	}
+	return strings.Compare(a, b)
 }

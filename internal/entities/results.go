@@ -54,6 +54,34 @@ func (m medalType) String() string {
 	return string(m)
 }
 
+func (m medalType) value() int {
+	switch m {
+	case MedalBronze:
+		return 3
+	case MedalSilver:
+		return 5
+	case MedalGold:
+		return 7
+	case MedalLoser:
+		return 1
+	case MedalWinner:
+		return 2
+	}
+
+	return 0
+}
+
+func (m medalType) CompareTo(other medalType) int {
+	result := m.value() - other.value()
+	if result < 0 {
+		return -1
+	} else if result > 1 {
+		return 1
+	}
+
+	return 0
+}
+
 type Results struct {
 	Position  string
 	Mark      string

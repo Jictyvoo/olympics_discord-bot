@@ -211,6 +211,7 @@ func (en *EventNotifier) checkUpdateJobs() error {
 	for _, event := range dayEvents {
 		// event.Competitors, err = en.repo.LoadCompetitorsFromEvent(event)
 
+		(*entities.OlympicEvent).Normalize(&event)
 		eventKey, checkErr := en.useCases.ShouldNotify(event)
 		if checkErr != nil || eventKey == "" {
 			errList = append(errList, checkErr)
