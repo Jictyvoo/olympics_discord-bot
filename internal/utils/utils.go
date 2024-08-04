@@ -2,7 +2,9 @@ package utils
 
 import (
 	"os"
+	"strings"
 	"time"
+	"unicode"
 )
 
 func CreateDirIfNotExist(dir string) error {
@@ -42,4 +44,31 @@ func EnsureTime(value *time.Time, duration time.Duration) time.Time {
 		Add(duration)
 
 	return *value
+}
+
+func EqualAlfaNum(a string, b string) bool {
+	var buffers struct{ a, b strings.Builder }
+	if len(b) > len(a) {
+		a, b = b, a
+	}
+	var index uint
+	for index = 0; index < uint(min(len(a), len(b))); index++ {
+		characterA, characterB := rune(a[index]), rune(b[index])
+		if unicode.IsLetter(characterA) || unicode.IsNumber(characterA) {
+			buffers.a.WriteRune(characterA)
+		}
+		if unicode.IsLetter(characterB) || unicode.IsNumber(characterB) {
+			buffers.b.WriteRune(characterB)
+		}
+	}
+
+	for index < uint(len(a)) {
+		if characterA := rune(a[index]); unicode.IsLetter(characterA) ||
+			unicode.IsNumber(characterA) {
+			buffers.a.WriteRune(characterA)
+		}
+		index++
+	}
+
+	return strings.EqualFold(buffers.a.String(), buffers.b.String())
 }
