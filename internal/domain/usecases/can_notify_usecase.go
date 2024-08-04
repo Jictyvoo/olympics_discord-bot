@@ -8,6 +8,8 @@ import (
 	"github.com/jictyvoo/olympics_data_fetcher/internal/utils"
 )
 
+//go:generate mockgen -destination=../mocks/canotify_repository_mock.go -package=mocks github.com/jictyvoo/olympics_data_fetcher/internal/domain/usecases CanNotifyRepository
+
 type CanNotifyRepository interface {
 	CheckSentNotifications(
 		eventID entities.Identifier, eventChecksum string,
