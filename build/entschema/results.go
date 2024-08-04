@@ -6,6 +6,8 @@ import (
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
 	"github.com/google/uuid"
+
+	"github.com/jictyvoo/olympics_data_fetcher/build/entschema/customixins"
 )
 
 // Results holds the schema definition for the Results entity.
@@ -43,5 +45,12 @@ func (Results) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("competitor_id", "event_id").
 			Unique(),
+	}
+}
+
+// Mixin of the Results.
+func (Results) Mixin() []ent.Mixin {
+	return []ent.Mixin{
+		customixins.TimestampsMixin{},
 	}
 }

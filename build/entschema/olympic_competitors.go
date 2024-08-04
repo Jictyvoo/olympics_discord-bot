@@ -2,6 +2,7 @@ package entschema
 
 import (
 	"entgo.io/ent"
+	"entgo.io/ent/dialect/entsql"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
@@ -40,6 +41,7 @@ func (Competitors) Edges() []ent.Edge {
 			Field("country_id").
 			Unique().
 			Required(),
-		edge.To("results", Results.Type),
+		edge.To("results", Results.Type).
+			Annotations(entsql.OnDelete(entsql.Cascade)),
 	}
 }

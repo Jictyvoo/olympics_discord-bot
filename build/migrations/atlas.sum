@@ -1,4 +1,5 @@
-h1:kq95vunGA9SJldjB9pBi+axbpf0/ouiPU58OrQ5D3bY=
+h1:0l1oY9mjmDqeE/PI0lS1uKfQT9csFChqvAtJwXOHmP4=
 20240730053759_create_base_structure.sql h1:yF2tcLr0p+0GxifbTo2MSRdKAOOJIx2QFofNCEh7qzE=
 20240730190058_add_notified_events.sql h1:bAZrncZcjX7x+5nUCmc2wTxHOxnid4qtWNfLzCUK7+w=
 20240731133848_add_discipline_code.sql h1:/BKmE3UQvnpg7tKsVegscHl4fiJmd5jeTfMTyrOrwpI=
+20240804044215_update_table_fks_plus_updated_at.sql h1:TT1lab9y2m805wDWcMrNgYS+W2xzaQH3Vt5ufIxABNQ=

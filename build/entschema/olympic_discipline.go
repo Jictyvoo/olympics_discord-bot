@@ -2,6 +2,7 @@ package entschema
 
 import (
 	"entgo.io/ent"
+	"entgo.io/ent/dialect/entsql"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
@@ -33,6 +34,7 @@ func (OlympicDiscipline) Indexes() []ent.Index {
 // Edges of the OlympicDiscipline.
 func (OlympicDiscipline) Edges() []ent.Edge {
 	return []ent.Edge{
-		edge.To("olympic_events", OlympicEvent.Type),
+		edge.To("olympic_events", OlympicEvent.Type).
+			Annotations(entsql.OnDelete(entsql.Restrict)),
 	}
 }

@@ -4,9 +4,12 @@ import (
 	"time"
 
 	"entgo.io/ent"
+	"entgo.io/ent/dialect/entsql"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
+
+	"github.com/jictyvoo/olympics_data_fetcher/build/entschema/customixins"
 )
 
 // OlympicEvent holds the schema definition for the OlympicEvent (OlympicEvent) entity.
@@ -23,6 +26,7 @@ func (OlympicEvent) Fields() []ent.Field {
 		field.String("phase"),
 		field.Uint8("gender"),
 		field.String("session_code"),
+		field.Bool("has_medal").Default(false),
 		field.Time("start_at").Default(time.Now),
 		field.Time("end_at").Default(time.Now),
 		field.String("status"),
@@ -39,12 +43,21 @@ func (OlympicEvent) Indexes() []ent.Index {
 // Edges of the OlympicEvent.
 func (OlympicEvent) Edges() []ent.Edge {
 	return []ent.Edge{
-		edge.To("results", Results.Type),
-		edge.To("notified_events", NotifiedEvent.Type),
+		edge.To("results", Results.Type).
+			Annotations(entsql.OnDelete(entsql.Cascade)),
+		edge.To("notified_events", NotifiedEvent.Type).
+			Annotations(entsql.OnDelete(entsql.Cascade)),
 		edge.From("olympic_disciplines", OlympicDiscipline.Type).
 			Ref("olympic_events").
 			Field("discipline_id").
 			Unique().
 			Required(),
+	}
+}
+
+// Mixin of the OlympicEvent.
+func (OlympicEvent) Mixin() []ent.Mixin {
+	return []ent.Mixin{
+		customixins.TimestampsMixin{},
 	}
 }
