@@ -50,8 +50,13 @@ func (repo OlympicsFetcherImpl) parseAPICompetitors(
 }
 
 func (repo OlympicsFetcherImpl) parseAPIResp(response OlympicsAPIResponse) []entities.OlympicEvent {
+	groupMap := make(map[string]OlympicsAPIResponseGroup, len(response.Groups))
+	for _, group := range response.Groups {
+		groupMap[group.Id] = group
+	}
 	events := make([]entities.OlympicEvent, 0, len(response.Units))
 	for _, unit := range response.Units {
+		unitGroup := groupMap[unit.GroupId]
 		newEvent := entities.OlympicEvent{
 			EventName: unit.EventUnitName,
 			Discipline: entities.Discipline{
@@ -61,6 +66,7 @@ func (repo OlympicsFetcherImpl) parseAPIResp(response OlympicsAPIResponse) []ent
 			Phase:       unit.PhaseName,
 			Gender:      entities.GenderOther,
 			SessionCode: unit.UnitNum + "_#" + unit.SessionCode,
+			HasMedal:    unitGroup.HasMedals,
 			StartAt:     unit.StartDate,
 			EndAt:       unit.EndDate,
 		}
@@ -76,6 +82,9 @@ func (repo OlympicsFetcherImpl) parseAPIResp(response OlympicsAPIResponse) []ent
 			newEvent.Status = entities.StatusScheduled
 		case string(entities.StatusFinished):
 			newEvent.Status = entities.StatusFinished
+		}
+		if newEvent.Status == "" && unitGroup.IsLive {
+			newEvent.Status = entities.StatusOngoing
 		}
 
 		newEvent.Competitors = repo.parseAPICompetitors(unit.Competitors)

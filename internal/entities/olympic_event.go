@@ -35,6 +35,7 @@ type EventStatus string
 
 const (
 	StatusScheduled EventStatus = "scheduled"
+	StatusOngoing   EventStatus = "ongoing"
 	StatusFinished  EventStatus = "finished"
 )
 
@@ -51,6 +52,7 @@ type OlympicEvent struct {
 	StartAt             time.Time
 	EndAt               time.Time
 	Status              EventStatus
+	HasMedal            bool
 	Competitors         []OlympicCompetitors
 	ResultPerCompetitor map[string]Results
 }
