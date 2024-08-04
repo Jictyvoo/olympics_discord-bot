@@ -28,8 +28,8 @@ func NewOlympicEventManager(
 ) (OlympicEventManager, error) {
 	const tmpl = `
 # {{.Discipline}}
-**Event:** {{.EventName}} - {{.Status}}
-**Phase:** {{.Phase}}
+**Event:** {{.EventName}} - {{.Status}}{{if .Phase}}
+**Phase:** {{.Phase}}{{end}}
 **Gender:** {{.Gender}}
 **Start:** {{discRelativeHour .StartAt}}
 **End:** {{discRelativeHour .EndAt}}
@@ -56,6 +56,9 @@ func NewOlympicEventManager(
 func (oen OlympicEventManager) NormalizeEvent4Notification(event *entities.OlympicEvent) bool {
 	if len(oen.watchCountries) <= 0 {
 		return true
+	}
+	if utils.EqualAlfaNum(event.EventName, event.Phase) {
+		event.Phase = ""
 	}
 
 	newCompetitorsList := make([]entities.OlympicCompetitors, 0, len(event.Competitors))
