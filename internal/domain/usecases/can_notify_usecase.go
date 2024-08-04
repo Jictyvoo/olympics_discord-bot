@@ -41,10 +41,12 @@ func (uc CanNotifyUseCase) ShouldNotify(
 	event entities.OlympicEvent,
 ) (validatedKey string, err error) {
 	// Remove ongoing results from event to prevent sending multiple ongoing notifications
-	if event.Status != entities.StatusFinished && uc.timeNow().Before(event.EndAt) {
+	if event.Status != entities.StatusFinished &&
+		uc.timeNow().Before(event.EndAt.Add(uc.allowedTimeDiff>>1)) {
 		event.ResultPerCompetitor = map[string]entities.Results{}
 	}
 
+	(*entities.OlympicEvent).Normalize(&event)
 	eventKey := event.SHAIdentifier()
 	validatedKey = eventKey
 	// Check if it exists on database
