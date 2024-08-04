@@ -46,7 +46,6 @@ tasks:
     desc: Run all generation commands
     cmds:
 #      - atlas schema inspect -u "{{.DB_URL}}" --format '{{"{{ sql . }}"}}' > build/schema.sql
-      - task: migration:gen
       - task: generate:code
     vars:
       DB_URL: "sqlite://{{.DATABASE_NAME}}"

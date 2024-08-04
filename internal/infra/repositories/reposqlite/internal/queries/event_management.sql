@@ -12,11 +12,13 @@ RETURNING id;
 
 
 -- name: SaveEvent :one
-INSERT INTO olympic_events (event_name, discipline_id, phase, gender, session_code, start_at, end_at, status)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO olympic_events (event_name, discipline_id, phase, gender, session_code,
+                            start_at, end_at, status, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, DATETIME('now'), DATETIME('now'))
 ON CONFLICT (event_name, discipline_id, phase, gender, session_code) DO UPDATE SET status=excluded.status,
                                                                                    start_at=excluded.start_at,
-                                                                                   end_at=excluded.end_at
+                                                                                   end_at=excluded.end_at,
+                                                                                   updated_at=excluded.updated_at
 RETURNING id;
 
 

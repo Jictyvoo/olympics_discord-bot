@@ -1,10 +1,11 @@
 -- name: SaveResults :exec
-INSERT INTO results (id, competitor_id, event_id, position, mark, medal_type, irm)
-VALUES (?, ?, ?, ?, ?, ?, ?)
+INSERT INTO results (id, competitor_id, event_id, position, mark, medal_type, irm, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, DATETIME('now'), DATETIME('now'))
 ON CONFLICT (competitor_id, event_id) DO UPDATE SET position   = excluded.position,
                                                     mark       = excluded.mark,
                                                     medal_type = excluded.medal_type,
-                                                    irm        = excluded.irm;
+                                                    irm        = excluded.irm,
+                                                    updated_at = excluded.updated_at;
 
 -- name: GetEventResults :many
 SELECT r.event_id      AS event_id,

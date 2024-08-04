@@ -47,10 +47,13 @@ type OlympicDiscipline struct {
 
 type OlympicEvent struct {
 	ID           int64     `db:"id"`
+	CreatedAt    time.Time `db:"created_at"`
+	UpdatedAt    time.Time `db:"updated_at"`
 	EventName    string    `db:"event_name"`
 	Phase        string    `db:"phase"`
 	Gender       int64     `db:"gender"`
 	SessionCode  string    `db:"session_code"`
+	HasMedal     bool      `db:"has_medal"`
 	StartAt      time.Time `db:"start_at"`
 	EndAt        time.Time `db:"end_at"`
 	Status       string    `db:"status"`
@@ -59,6 +62,8 @@ type OlympicEvent struct {
 
 type Result struct {
 	ID           interface{} `db:"id"`
+	CreatedAt    time.Time   `db:"created_at"`
+	UpdatedAt    time.Time   `db:"updated_at"`
 	Position     interface{} `db:"position"`
 	Mark         interface{} `db:"mark"`
 	MedalType    interface{} `db:"medal_type"`
