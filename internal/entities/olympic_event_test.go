@@ -5,9 +5,11 @@ import (
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
-func TestSHAIdentifier(t *testing.T) {
+func TestOlympicEvent_SHAIdentifier(t *testing.T) {
 	testCompetitors := mockOlympicCompetitors()
 	tests := [...]struct {
 		name  string
@@ -90,6 +92,116 @@ func TestSHAIdentifier(t *testing.T) {
 						)
 					}
 				}
+			},
+		)
+	}
+}
+
+func TestOlympicEvent_Normalize(t *testing.T) {
+	mockDates := [...]time.Time{
+		time.Date(2024, time.August, 3, 12, 0, 0, 0, time.Local),
+		time.Date(2024, time.August, 3, 15, 0, 0, 0, time.Local),
+		time.Date(2024, time.August, 3, 15, 0, 0, 0, time.UTC),
+		time.Date(2024, time.August, 3, 18, 0, 0, 0, time.UTC),
+	}
+	mockCompetitors := mockOlympicCompetitors()
+
+	tests := []struct {
+		name                string
+		event               OlympicEvent
+		expectedStartAt     time.Time
+		expectedEndAt       time.Time
+		expectedCompetitors []OlympicCompetitors
+	}{
+		{
+			name: "Basic normalization and sorting",
+			event: OlympicEvent{
+				StartAt: mockDates[0],
+				EndAt:   mockDates[1],
+				Competitors: []OlympicCompetitors{
+					mockCompetitors[1], mockCompetitors[0], mockCompetitors[2], mockCompetitors[3],
+				},
+				ResultPerCompetitor: map[string]Results{
+					mockCompetitors[0].Code: {MedalType: MedalGold, Mark: "10.0"},
+					mockCompetitors[1].Code: {MedalType: MedalSilver, Mark: "9.0"},
+					mockCompetitors[2].Code: {MedalType: MedalBronze, Mark: "8.0"},
+				},
+			},
+			expectedStartAt: mockDates[2],
+			expectedEndAt:   mockDates[3],
+			expectedCompetitors: []OlympicCompetitors{
+				mockCompetitors[0], mockCompetitors[1], mockCompetitors[2], mockCompetitors[3],
+			},
+		},
+		{
+			name: "Sorting with no medals",
+			event: OlympicEvent{
+				StartAt: mockDates[0],
+				EndAt:   mockDates[1],
+				Competitors: []OlympicCompetitors{
+					mockCompetitors[0], mockCompetitors[1], mockCompetitors[2],
+				},
+				ResultPerCompetitor: map[string]Results{
+					mockCompetitors[0].Code: {MedalType: MedalNoMedal, Mark: "10"},
+					mockCompetitors[1].Code: {MedalType: MedalNoMedal, Mark: "9"},
+					mockCompetitors[2].Code: {MedalType: MedalNoMedal, Mark: "8.0"},
+				},
+			},
+			expectedStartAt: mockDates[2],
+			expectedEndAt:   mockDates[3],
+			expectedCompetitors: []OlympicCompetitors{
+				mockCompetitors[0], mockCompetitors[1], mockCompetitors[2],
+			},
+		},
+		{
+			name: "Sorting based on a time mark without a competitor result",
+			event: OlympicEvent{
+				StartAt: mockDates[0],
+				EndAt:   mockDates[1],
+				Competitors: []OlympicCompetitors{
+					mockCompetitors[5], mockCompetitors[6], mockCompetitors[4],
+				},
+				ResultPerCompetitor: map[string]Results{
+					mockCompetitors[5].Code: {MedalType: MedalNoMedal, Mark: "9:16.28"},
+					mockCompetitors[6].Code: {MedalType: MedalNoMedal, Mark: "9:01.78"},
+				},
+			},
+			expectedStartAt: mockDates[2],
+			expectedEndAt:   mockDates[3],
+			expectedCompetitors: []OlympicCompetitors{
+				mockCompetitors[5], mockCompetitors[6], mockCompetitors[4],
+			},
+		},
+		{
+			name: "Sorting with mixed medals and marks",
+			event: OlympicEvent{
+				StartAt: mockDates[0],
+				EndAt:   mockDates[1],
+				Competitors: []OlympicCompetitors{
+					mockCompetitors[0], mockCompetitors[1], mockCompetitors[2],
+				},
+				ResultPerCompetitor: map[string]Results{
+					mockCompetitors[0].Code: {MedalType: MedalNoMedal, Mark: "10.0"},
+					mockCompetitors[1].Code: {MedalType: MedalBronze, Mark: "8.0"},
+					mockCompetitors[2].Code: {MedalType: MedalSilver, Mark: "9.0"},
+				},
+			},
+			expectedStartAt: mockDates[2],
+			expectedEndAt:   mockDates[3],
+			expectedCompetitors: []OlympicCompetitors{
+				mockCompetitors[2], mockCompetitors[1], mockCompetitors[0],
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(
+			tt.name, func(t *testing.T) {
+				tt.event.Normalize()
+
+				assert.Equal(t, tt.expectedStartAt, tt.event.StartAt)
+				assert.Equal(t, tt.expectedEndAt, tt.event.EndAt)
+				assert.Equal(t, tt.expectedCompetitors, tt.event.Competitors)
 			},
 		)
 	}
