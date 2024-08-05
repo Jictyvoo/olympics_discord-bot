@@ -171,7 +171,7 @@ func (en *EventNotifier) fetcherThread() {
 	}
 }
 
-func (en *EventNotifier) taskExecution(event entities.OlympicEvent) {
+func (en *EventNotifier) taskExecution(event entities.OlympicEvent, evtChecksum string) {
 	// Use cron state to trigger observers
 	notifyStatus := entities.NotificationStatusSent
 	if !en.cronState.taskExecution(event) {
@@ -179,7 +179,7 @@ func (en *EventNotifier) taskExecution(event entities.OlympicEvent) {
 	} else {
 		slog.Info(
 			"Job for notification sent",
-			slog.String("eventHash", event.SHAIdentifier()),
+			slog.String("eventChecksum", evtChecksum),
 			slog.Time("startTime", event.StartAt),
 		)
 	}
@@ -188,7 +188,7 @@ func (en *EventNotifier) taskExecution(event entities.OlympicEvent) {
 	newNotification := entities.Notification{
 		EventID:       event.ID,
 		Status:        notifyStatus,
-		EventChecksum: event.SHAIdentifier(),
+		EventChecksum: evtChecksum,
 		NotifiedAt:    time.Now(),
 	}
 	if err := en.repo.RegisterNotification(newNotification); err != nil {
@@ -225,7 +225,7 @@ func (en *EventNotifier) checkUpdateJobs() error {
 		startDiff := utils.AbsoluteNum(event.StartAt.Sub(time.Now()))
 		if startDiff <= 20*time.Minute || event.Status == entities.StatusFinished ||
 			len(event.ResultPerCompetitor) > 0 {
-			en.taskExecution(event)
+			en.taskExecution(event, eventKey)
 		}
 		// en.taskExecution(event)
 	}
