@@ -6,6 +6,8 @@ import (
 	"github.com/jictyvoo/olympics_data_fetcher/internal/entities"
 )
 
+//go:generate mockgen -destination=../mocks/olympicsfetcher_repository_mock.go -package=mocks github.com/jictyvoo/olympics_data_fetcher/internal/domain/usecases OlympicsFetcher,AccessDatabaseRepository
+
 type (
 	OlympicsFetcher interface {
 		FetchDataFromDay(day time.Time) ([]entities.OlympicEvent, error)
