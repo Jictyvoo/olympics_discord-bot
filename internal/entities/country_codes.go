@@ -58,12 +58,3 @@ func GetCountryByCode(countryCode string) CountryInfo {
 
 	return CountryInfo{IOCCode: countryCode, ISOCode: [2]string{countryCode}, Name: countryCode}
 }
-
-func GetCountryList() []CountryInfo {
-	countries := make([]CountryInfo, 0, len(countriesData))
-	for _, country := range countriesData {
-		countries = append(countries, country)
-	}
-
-	return countries
-}
