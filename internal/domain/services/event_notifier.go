@@ -160,7 +160,10 @@ func (en *EventNotifier) fetcherThread() {
 			}
 			todayEndAt, tomorrowStartAt := en.fetchRemainingDays(time.Now(), false)
 			if now := time.Now(); now.After(todayEndAt.Add(3 * time.Hour >> 1)) {
-				slog.Info("Start to sleeping until next day event")
+				slog.Info(
+					"Start to sleeping until next day event",
+					slog.Time("wakeAt", tomorrowStartAt),
+				)
 				ticker.Reset(tomorrowStartAt.Add(-time.Hour >> 1).Sub(now))
 				restoreInterval = true
 			}

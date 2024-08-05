@@ -66,13 +66,17 @@ func (uc CanNotifyUseCase) ShouldNotify(
 
 	// Liberate for next checks
 	notificationStatus := entities.NotificationStatusPending
-	if !uc.timeDiffAllowed(event) && event.EndAt.Before(uc.timeNow().Add(30*time.Minute)) {
+	if !uc.timeDiffAllowed(event) {
 		validatedKey = ""
-		notificationStatus = entities.NotificationStatusSkipped
 
-		// Check if it exists on database
-		if notificationRegister.Status != "" {
-			notificationStatus = entities.NotificationStatusCancelled
+		// Only mark to skip or cancel if it was already done
+		if event.EndAt.Before(uc.timeNow().Add(-uc.allowedTimeDiff >> 1)) {
+			notificationStatus = entities.NotificationStatusSkipped
+
+			// Check if it exists on database
+			if notificationRegister.Status != "" {
+				notificationStatus = entities.NotificationStatusCancelled
+			}
 		}
 
 		slog.Warn(
