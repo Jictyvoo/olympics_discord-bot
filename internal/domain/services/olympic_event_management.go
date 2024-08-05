@@ -28,7 +28,7 @@ func NewOlympicEventManager(
 ) (OlympicEventManager, error) {
 	const tmpl = `
 # {{.Discipline}}
-**Event:** {{.EventName}} - {{.Status}}{{if .Phase}}
+**Event:** {{if .HasMedal}}:medal: {{end}}{{.EventName}}{{if .Status}} - {{.Status}}{{end}}{{if .Phase}}
 **Phase:** {{.Phase}}{{end}}
 **Gender:** {{.Gender}}
 **Start:** {{discRelativeHour .StartAt}}

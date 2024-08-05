@@ -83,6 +83,8 @@ func (uc CanNotifyUseCase) ShouldNotify(
 			"Event can't be send",
 			slog.String("sessionCode", event.SessionCode),
 			slog.String("eventKey", eventKey),
+			slog.Time("startAt", event.StartAt),
+			slog.Time("endAt", event.EndAt),
 			slog.String("status", string(notificationStatus)),
 		)
 	}

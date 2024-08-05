@@ -23,6 +23,7 @@ func TestOlympicEventManager_GenContent(t *testing.T) {
 		EventName: "100m Final",
 		Status:    "Completed",
 		Phase:     "Final",
+		HasMedal:  true,
 		Gender:    entities.GenderMasc,
 		StartAt:   time.Date(2024, 7, 30, 18, 0, 0, 0, time.UTC),
 		EndAt:     time.Date(2024, 7, 30, 18, 10, 0, 0, time.UTC),
@@ -42,7 +43,7 @@ func TestOlympicEventManager_GenContent(t *testing.T) {
 
 	expectedOutput := `
 # :athletic_shoe: Athletics
-**Event:** 100m Final - Completed
+**Event:** :medal: 100m Final - Completed
 **Phase:** Final
 **Gender:** Male
 **Start:** <t:1722362400:R>
