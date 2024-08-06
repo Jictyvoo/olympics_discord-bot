@@ -67,8 +67,8 @@ func (repo OlympicsFetcherImpl) parseAPIResp(response OlympicsAPIResponse) []ent
 			Gender:      entities.GenderOther,
 			SessionCode: unit.UnitNum + "_#" + unit.SessionCode,
 			HasMedal:    unitGroup.HasMedals,
-			StartAt:     unit.StartDate,
-			EndAt:       unit.EndDate,
+			StartAt:     unit.StartDate.Local(),
+			EndAt:       unit.EndDate.Local(),
 		}
 
 		switch {
