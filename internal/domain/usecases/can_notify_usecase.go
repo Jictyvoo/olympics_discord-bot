@@ -26,7 +26,7 @@ type CanNotifyUseCase struct {
 func NewCanNotifyUseCase(
 	repo CanNotifyRepository,
 ) CanNotifyUseCase {
-	allowedTimeDiff := (2 * time.Hour) + (30 * time.Minute)
+	allowedTimeDiff := (3 * time.Hour) + (30 * time.Minute)
 	return CanNotifyUseCase{repo: repo, allowedTimeDiff: allowedTimeDiff, timeNow: time.Now}
 }
 

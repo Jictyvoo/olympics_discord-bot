@@ -55,7 +55,7 @@ func (fac *DiscordFacadeImpl) InitMessageChannel(channelName string) error {
 	return nil
 }
 
-func (fac *DiscordFacadeImpl) SendMessage(content string) error {
-	_, err := fac.session.ChannelMessageSend(fac.mainChannel.ID, content)
+func (fac *DiscordFacadeImpl) SendMessage(content string) (err error) {
+	_, err = fac.session.ChannelMessageSend(fac.mainChannel.ID, content)
 	return err
 }
