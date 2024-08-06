@@ -3,10 +3,12 @@ package reposqlite
 import (
 	"database/sql"
 	"errors"
+	"log/slog"
 	"time"
 
 	"github.com/jictyvoo/olympics_data_fetcher/internal/entities"
 	"github.com/jictyvoo/olympics_data_fetcher/internal/infra/repositories/reposqlite/internal/dbgen"
+	"github.com/jictyvoo/olympics_data_fetcher/internal/utils"
 )
 
 func (r RepoSQLite) SaveEvent(
@@ -47,10 +49,21 @@ func (r RepoSQLite) SaveEvent(
 	return r.saveResultsCtx(ctx, dbQuery, competitorResultsByIDs, eventID)
 }
 
-func parseStartEndTimes(resultEvent *entities.OlympicEvent, startAt, endAt string) {
-	const layout = "2006-01-02 15:04:05 -0700 -0700"
-	resultEvent.StartAt, _ = time.Parse(layout, startAt)
-	resultEvent.EndAt, _ = time.Parse(layout, endAt)
+func parseDbTimestamp(dst *time.Time, timestamp string) {
+	if dst == nil {
+		return
+	}
+
+	parsedTime, err := utils.ParseTimestamp(timestamp)
+	if err != nil {
+		slog.Error(
+			"Error parsing timestamp",
+			slog.String("timestamp", timestamp),
+			slog.String("error", err.Error()),
+		)
+		return
+	}
+	*dst = parsedTime.In(time.UTC)
 }
 
 func (r RepoSQLite) LoadDayEvents(from time.Time) ([]entities.OlympicEvent, error) {
@@ -95,7 +108,8 @@ func (r RepoSQLite) LoadDayEvents(from time.Time) ([]entities.OlympicEvent, erro
 			Competitors: competitors,
 		}
 
-		parseStartEndTimes(&eventList[index], foundEvent.StartAt, foundEvent.EndAt)
+		parseDbTimestamp(&eventList[index].StartAt, foundEvent.StartAt)
+		parseDbTimestamp(&eventList[index].EndAt, foundEvent.EndAt)
 		if eventList[index].ResultPerCompetitor, err = r.loadResults(ctx, eventID); err != nil {
 			return nil, err
 		}
@@ -140,7 +154,8 @@ func (r RepoSQLite) LoadEvent(id entities.Identifier) (entities.OlympicEvent, er
 		Competitors: competitors,
 	}
 
-	parseStartEndTimes(&resultEvent, foundEvent.StartAt, foundEvent.EndAt)
+	parseDbTimestamp(&resultEvent.StartAt, foundEvent.StartAt)
+	parseDbTimestamp(&resultEvent.EndAt, foundEvent.EndAt)
 	if resultEvent.ResultPerCompetitor, err = r.loadResults(ctx, eventID); err != nil {
 		return entities.OlympicEvent{}, err
 	}

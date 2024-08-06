@@ -3,7 +3,6 @@ package utils
 import (
 	"os"
 	"strings"
-	"time"
 	"unicode"
 )
 
@@ -29,21 +28,6 @@ func AbsoluteNum[T numeric](value T) T {
 	}
 
 	return value
-}
-
-func EnsureTime(value *time.Time, duration time.Duration) time.Time {
-	if value == nil {
-		value = new(time.Time)
-	}
-	if !value.IsZero() {
-		return *value
-	}
-
-	now := time.Now()
-	*value = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC).
-		Add(duration)
-
-	return *value
 }
 
 func EqualAlfaNum(a string, b string) bool {
