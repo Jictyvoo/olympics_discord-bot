@@ -130,7 +130,7 @@ func TestLoadExistentFolderCache(t *testing.T) {
 		}
 	}(folder)
 
-	cache, err := loadExistentFolderCache(folder)
+	cache, err := loadExistentFolderCache(folder.Name())
 	if err != nil {
 		t.Fatalf("loadExistentFolderCache() error = %v", err)
 	}
@@ -138,11 +138,10 @@ func TestLoadExistentFolderCache(t *testing.T) {
 	if len(cache) != 1 {
 		t.Errorf("Expected cache to contain 1 entry, got %d", len(cache))
 	}
-	if string(cache[testFileName]) != string(testData) {
+	if string(cache[testFileName].content) != string(testData) {
 		t.Errorf(
 			"Expected cache data to be %s, got %s",
-			string(testData),
-			string(cache[testFileName]),
+			string(testData), string(cache[testFileName].content),
 		)
 	}
 }
