@@ -84,7 +84,7 @@ func (uc CanNotifyUseCase) ShouldNotify(
 		}
 
 		slog.Warn(
-			"Event can't be send",
+			"Event can't be send based on time diff",
 			slog.String("sessionCode", event.SessionCode),
 			slog.String("eventKey", eventKey),
 			slog.Time("startAt", event.StartAt),

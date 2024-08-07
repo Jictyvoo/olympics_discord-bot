@@ -81,6 +81,7 @@ competitorLoop:
 		event.Competitors = newCompetitorsList
 	}
 
+	event.Normalize()
 	return foundCountry
 }
 

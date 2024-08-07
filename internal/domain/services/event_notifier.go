@@ -102,6 +102,7 @@ func (en *EventNotifier) fetchRemainingDays(
 	en.mutex.Lock() // Prevent sqlite multi access
 	defer en.mutex.Unlock()
 
+	from = from.In(time.UTC)
 	startDate := time.Date(from.Year(), from.Month(), from.Day(), 0, 0, 0, 0, time.UTC)
 	endDate := startDate.Add(48 * time.Hour)
 	if all || endDate.After(en.olympicsEndDate) {
