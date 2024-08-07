@@ -34,8 +34,8 @@ func (r RepoSQLite) SaveEvent(
 			Phase:        event.Phase,
 			Gender:       int64(event.Gender),
 			SessionCode:  event.SessionCode,
-			StartAt:      event.StartAt,
-			EndAt:        event.EndAt,
+			StartAt:      event.StartAt.In(time.UTC),
+			EndAt:        event.EndAt.In(time.UTC),
 			HasMedal:     event.HasMedal,
 			Status:       string(event.Status),
 		},
@@ -71,10 +71,11 @@ func (r RepoSQLite) LoadDayEvents(from time.Time) ([]entities.OlympicEvent, erro
 	defer cancel()
 
 	dbQuery := r.queries
+	from = from.In(time.UTC)
 	foundEvents, err := dbQuery.LoadDayEvents(
 		ctx, dbgen.LoadDayEventsParams{
 			StartAt: from,
-			EndAt: time.Date(from.Year(), from.Month(), from.Day(), 0, 0, 0, 0, time.UTC).
+			EndAt: time.Date(from.Year(), from.Month(), from.Day(), 0, 0, 0, 0, from.Location()).
 				Add(24 * time.Hour),
 		},
 	)
