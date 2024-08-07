@@ -30,6 +30,10 @@ func NewCanNotifyUseCase(
 	return CanNotifyUseCase{repo: repo, allowedTimeDiff: allowedTimeDiff, timeNow: time.Now}
 }
 
+func (uc CanNotifyUseCase) AllowedTimeDiff() time.Duration {
+	return uc.allowedTimeDiff
+}
+
 func (uc CanNotifyUseCase) timeDiffAllowed(event entities.OlympicEvent) bool {
 	now := uc.timeNow()
 	startDiff := utils.AbsoluteNum(event.StartAt.Sub(now))

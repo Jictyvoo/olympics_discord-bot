@@ -204,7 +204,9 @@ func (en *EventNotifier) checkUpdateJobs() error {
 	defer en.mutex.Unlock()
 
 	// Fetch all events from the day
-	dayEvents, err := en.repo.LoadDayEvents(time.Now())
+	dayEvents, err := en.repo.LoadDayEvents(
+		time.Now().Add((-30 * time.Minute) - en.useCases.AllowedTimeDiff()),
+	)
 	if err != nil {
 		slog.Error("Error loading day events", slog.String("error", err.Error()))
 		return err
