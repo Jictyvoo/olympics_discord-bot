@@ -2,6 +2,7 @@ package dsrest
 
 import (
 	"bytes"
+	"errors"
 	"log/slog"
 	"strings"
 	"unicode"
@@ -13,10 +14,16 @@ import (
 
 type responseInterceptor struct {
 	bytes.Buffer
+	headersBuffer bytes.Buffer
 }
 
 func (ri *responseInterceptor) Interceptor(buf []byte, _ any) bool {
 	_, err := ri.Write(buf)
+	return err == nil
+}
+
+func (ri *responseInterceptor) HeaderFunction(buf []byte, _ any) bool {
+	_, err := ri.headersBuffer.Write(buf)
 	return err == nil
 }
 
@@ -85,19 +92,38 @@ func (ds CurlDatasource) makeRequest(url string, method HTTPMethod) (HTTPRespons
 	easy := curl.EasyInit()
 	defer easy.Cleanup()
 
+	var writeFunc any
+	if method != MethodHead {
+		writeFunc = responseBody.Interceptor
+	}
+
 	setupErrList := []error{
 		easy.Setopt(curl.OPT_URL, url),
 		easy.Setopt(curl.OPT_HTTP_VERSION, curl.HTTP_VERSION_1_1),
 		easy.Setopt(curl.OPT_CUSTOMREQUEST, string(method)),
 		easy.Setopt(curl.OPT_ENCODING, ""),
-		easy.Setopt(curl.OPT_WRITEFUNCTION, responseBody.Interceptor),
+		easy.Setopt(curl.OPT_HEADERFUNCTION, responseBody.HeaderFunction),
+		easy.Setopt(curl.OPT_WRITEFUNCTION, writeFunc),
+		easy.Setopt(curl.OPT_NOPROGRESS, true),
+		easy.Setopt(curl.OPT_VERBOSE, true),
 	}
+
+	if method == MethodHead {
+		setupErrList = append(
+			setupErrList, easy.Setopt(curl.OPT_NOBODY, true),
+		)
+	}
+
 	if ds.disableSSL {
 		setupErrList = append(
 			setupErrList,
 			easy.Setopt(curl.OPT_SSL_VERIFYPEER, 0), // Disable SSL verification
 			easy.Setopt(curl.OPT_SSL_VERIFYHOST, 0), // Disable SSL host verification
 		)
+	}
+
+	if err := errors.Join(setupErrList...); err != nil {
+		return HTTPResponse{}, err
 	}
 
 	err := easy.Perform()
@@ -109,11 +135,12 @@ func (ds CurlDatasource) makeRequest(url string, method HTTPMethod) (HTTPRespons
 		)
 	}
 
+	respCode, _ := easy.Getinfo(curl.INFO_RESPONSE_CODE)
 	respObj := HTTPResponse{
-		StatusCode: 0,
-		Body:       &responseBody,
-		Headers:    map[string][]string{},
+		Body:    &responseBody,
+		Headers: map[string][]string{},
 	}
+	respObj.StatusCode, _ = respCode.(int)
 	// Save before returning
 	if err == nil && responseBody.Len() > 0 {
 		err = ds.saveOnCache(url, method, responseBody.Bytes())
