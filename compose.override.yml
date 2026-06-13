@@ -1,0 +1,6 @@
+services:
+  dev-db:
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./database/local.newdb-init:/docker-entrypoint-initdb.d:ro

@@ -1,0 +1,14 @@
+services:
+  dev-db:
+    image: mysql:8.4
+    env_file:
+      - path: database/local.newdb.env
+        required: true
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uolhojogo", "-polhojogo"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
