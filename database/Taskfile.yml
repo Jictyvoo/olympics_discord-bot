@@ -1,0 +1,51 @@
+version: "3"
+
+vars:
+  DEV_URL_SQLITE: "sqlite://file?mode=memory&cache=shared&_fk=1"
+  DEV_URL_MYSQL: "mysql://{{.MYSQL_USER}}:{{.MYSQL_PASSWORD}}@localhost:3306/atlas_temp?multiStatements=true"
+
+includes:
+  migrations:sqlite:
+    taskfile: ./Taskfile.migrations.yml
+    vars:
+      DIALECT: "sqlite"
+      DEV_URL: "{{.DEV_URL_SQLITE}}"
+      STRIP_BACKTICKS: "true"
+
+  migrations:mysql:
+    taskfile: ./Taskfile.migrations.yml
+    vars:
+      DIALECT: "mysql"
+      DEV_URL: "{{.DEV_URL_MYSQL}}"
+      STRIP_BACKTICKS: "false"
+
+tasks:
+  migration:apply:
+    desc: Apply pending migrations to a DB. Pass DIALECT and DB_URL.
+    cmds:
+      - task: migrations:{{.DIALECT}}:apply
+        vars: { DB_URL: "{{.DB_URL}}" }
+    vars:
+      DIALECT: '{{default "sqlite" .DIALECT}}'
+      DB_URL: '{{default "sqlite://./local.db" .DB_URL}}'
+
+  migration:gen:all:
+    desc: Generate migrations for both dialects. Pass DIFF_NAME=…
+    requires:
+      vars: [ DIFF_NAME ]
+    cmds:
+      - task: migrations:sqlite:gen
+        vars: { DIFF_NAME: "{{.DIFF_NAME}}" }
+      - task: migrations:mysql:gen
+        vars: { DIFF_NAME: "{{.DIFF_NAME}}" }
+
+  migration:hash:all:
+    desc: Rehash both dialects after manual edits
+    cmds:
+      - task: migrations:sqlite:hash
+      - task: migrations:mysql:hash
+
+  seed:
+    desc: Regenerate the seed_countries migration from database/seed/countries.json
+    cmds:
+      - cd tools/seedgen && go run . -source ../../database/seed/countries.json -out ../../database/migrations -ts 20260614181500

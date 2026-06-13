@@ -1,0 +1,67 @@
+version: "3"
+
+vars:
+  APP_NAME: anonymigo_api
+  TOOLS_MODFILE: build/tools/go.mod
+
+tasks:
+  build:
+    desc: Build image
+    cmds:
+      - go build -o {{.EXEC_GO}} -ldflags='-w -s -linkmode external -extldflags "-static"' -tags="{{.BUILD_TAGS}}" ./cmd/api
+    vars:
+      BUILD_TAGS: "{{.BUILD_TAGS}}"
+      EXEC_GO: "build/bin/{{.APP_NAME}}"
+
+  test:execution:
+    desc: Execute test based on a given variable checking for coverage or not
+    internal: true
+    env:
+      CONF_FILE: "{{.CONF_FILE}}"
+    cmds:
+      - cmd: "{{.COMMAND}}"
+    vars:
+      COVERAGE_FILENAME: "{{ .COVERAGE_FILENAME }}"
+      TAGS: "{{.TAGS}}"
+      TEST_CMD: "go test {{if .TAGS}}-tags {{.TAGS}} {{end}}./..."
+      TEST_COVERAGE_CMD: "go test -p 1 -count=1 {{if .TAGS}}-tags {{.TAGS}} {{end}}-coverpkg=./... ./... -coverprofile={{.COVERAGE_FILENAME}}"
+      COMMAND:
+        sh: '[[ -z "{{.COVERAGE_FILENAME}}" ]] && echo {{.TEST_CMD}} || echo {{.TEST_COVERAGE_CMD}}'
+
+  test:
+    desc: Execute tests. Pass TAGS=integration to include integration tests.
+    cmds:
+      - task: test:execution
+        vars:
+          CONF_FILE: "{{.ROOT_DIR}}/test/integration/conf.toml"
+          COVERAGE_FILENAME: "build/coverages/coverage.out"
+          TAGS: "{{.TAGS}}"
+
+  run:
+    cmds:
+      - "{{.EXEC_GO}}"
+
+  install:formatters:
+    desc: Install all formatters dependencies
+    cmds:
+      - go get -tool -modfile={{.TOOLS_MODFILE}} github.com/segmentio/golines@latest
+      - go get -tool -modfile={{.TOOLS_MODFILE}} mvdan.cc/gofumpt@latest
+
+  install:deps:
+    desc: Install all needed dependencies to run project
+    cmds:
+      - task: install:formatters
+      - go get -tool -modfile={{.TOOLS_MODFILE}} github.com/sqlc-dev/sqlc/cmd/sqlc@latest
+      - go get -tool -modfile={{.TOOLS_MODFILE}} go.uber.org/mock/mockgen@latest
+      - go get -tool -modfile={{.TOOLS_MODFILE}} github.com/jmattheis/goverter/cmd/goverter@latest
+
+  run:formatters:
+    desc: Run linters on entire project
+    cmds:
+      - go tool -modfile={{.TOOLS_MODFILE}} golines --base-formatter=gofumpt -w .
+
+  gen:code:
+    desc: Generate all needed code for the project to run
+    cmds:
+      - go tool -modfile={{.TOOLS_MODFILE}} sqlc generate
+      - go generate ./...

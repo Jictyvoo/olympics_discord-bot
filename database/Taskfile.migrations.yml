@@ -1,0 +1,47 @@
+version: "3"
+
+requires:
+  vars: [ DIALECT, DEV_URL, STRIP_BACKTICKS ]
+
+vars:
+  MIGRATIONS_DIRECTORY: "./migrations/{{.DIALECT}}"  # repo-relative path to the dialect's migration dir
+  SCHEMA_DIRECTORY: "./entschema"                   # path to the ent schema module
+
+tasks:
+  hash:
+    desc: Rehash the {{.DIALECT}} migration directory after manual edits
+    cmds:
+      - atlas migrate hash --dir "file://{{.MIGRATIONS_DIRECTORY}}"
+
+  diff:
+    desc: Atlas migrate diff for {{.DIALECT}} (internal — call `gen` instead)
+    internal: true
+    requires:
+      vars: [ DIFF_NAME ]
+    cmds:
+      - atlas migrate diff {{.DIFF_NAME}} --dir "file://{{.MIGRATIONS_DIRECTORY}}" --to "ent://{{.SCHEMA_DIRECTORY}}" --dev-url "{{.DEV_URL}}"
+
+  strip-backticks:
+    desc: Remove backticks from generated SQL (SQLite only; MySQL keeps them)
+    internal: true
+    status:
+      - test "{{.STRIP_BACKTICKS}}" != "true"
+    cmds:
+      - ./build/remove_backticks.sh "{{.MIGRATIONS_DIRECTORY}}"
+
+  gen:
+    desc: Generate a versioned {{.DIALECT}} migration from the Ent schema. Pass DIFF_NAME=...
+    requires:
+      vars: [ DIFF_NAME ]
+    cmds:
+      - task: diff
+        vars: { DIFF_NAME: "{{.DIFF_NAME}}" }
+      - task: strip-backticks
+      - task: hash
+
+  apply:
+    desc: Apply pending {{.DIALECT}} migrations to the database at DB_URL
+    requires:
+      vars: [ DB_URL ]
+    cmds:
+      - atlas migrate apply --dir "file://{{.MIGRATIONS_DIRECTORY}}" --url "{{.DB_URL}}"

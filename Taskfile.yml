@@ -1,34 +1,38 @@
 version: "3"
 
+dotenv: [ './database/local.newdb.env' ]
+
 includes:
+  main:
+    taskfile: ./Taskfile.build.yml
+    dir: .
+  docker:
+    taskfile: ./Taskfile.docker.yml
+    dir: .
+  database:
+    taskfile: ./database/Taskfile.yml
+    dir: ./database
   tools:
     taskfile: ./tools/Taskfile.yml
     dir: ./tools
-  build:
-    taskfile: ./build/Taskfile.yml
-    dir: ./build
 
 vars:
   TEST_CMD: "go test ./..."
 
 tasks:
-  test:
-    desc: Run the unit tests
-    cmds:
-      - "{{.TEST_CMD}}"
-
-  test:race:
-    desc: Run the unit tests with the race detector enabled
-    cmds:
-      - go test -race ./...
-
-  install:deps:
-    desc: Install pinned build tools through the tools module
-    cmds:
-      - task: tools:install
-
   default:
-    desc: Default — run the lint + test suite
+    desc: Run the default commands
     cmds:
-      - task: tools:vet
-      - task: test
+      - task: dev-env:up
+      - task: database:migration:apply
+        vars:
+          DIALECT: mysql
+          DB_URL: mysql://{{.MYSQL_USER}}:{{.MYSQL_PASSWORD}}@localhost:3306/{{.MYSQL_DATABASE}}?multiStatements=true
+
+  dev-env:up:
+    desc: Up all development required environment
+    cmds:
+      - task: docker:stop
+      - task: docker:run
+        vars:
+          OPTIONS: "--wait"

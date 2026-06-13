@@ -1,0 +1,70 @@
+version: "3"
+
+vars:
+  TEST_CMD: "go test ./..."
+  STANDARD_COMPOSE_FILE: "COMPOSE_FILE=compose.yml"
+  CONTAINER_RUNTIME_BIN:
+    sh: |
+      if [ "${USE_PODMAN:-}" = "1" ] || [ "${USE_PODMAN:-}" = "true" ]; then
+        if command -v podman >/dev/null 2>&1; then
+          echo podman
+          exit 0
+        else
+          echo "Error: USE_PODMAN is set but 'podman' not found in PATH" >&2
+          exit 1
+        fi
+      fi
+      echo docker
+  COMPOSE_BIN:
+    sh: |
+      # If container runtime is docker and docker-compose exists, use it
+      if [ "{{.CONTAINER_RUNTIME_BIN}}" = "docker" ] && command -v docker-compose >/dev/null 2>&1; then
+        echo docker-compose
+      else
+        # Otherwise, use the new compose subcommand (e.g., "podman compose" or "docker compose")
+        echo "{{.CONTAINER_RUNTIME_BIN}} compose"
+      fi
+
+tasks:
+  stop:
+    desc: Stop env
+    cmds:
+      - '{{.STOP_CMD}} {{.SERVICE_NAMES | trimPrefix "[" | trimSuffix "]"}}'
+    vars:
+      SERVICE_NAMES: "{{.SERVICE_NAMES}}"
+      DOWN_CMD: "{{.COMPOSE_BIN}} down -v"
+      STOP_CMD:
+        sh: |
+          if [ -z "{{.SERVICE_NAMES}}" ]; then
+            echo "{{.DOWN_CMD}}"
+          fi
+          echo "{{.COMPOSE_BIN}} stop"
+
+  run:
+    desc: Run docker
+    cmds:
+      - "{{.COMPOSE_FILE}} {{.RUN_CMD}} dev-db"
+    vars:
+      COMPOSE_FILE: "{{.COMPOSE_FILE}}"
+      RUN_CMD: "{{.COMPOSE_BIN}} up {{.OPTIONS}} -d"
+      OPTIONS: "{{.OPTIONS}}"
+
+  exec:
+    desc: Execute a command in the running container
+    cmds:
+      - '{{.COMPOSE_BIN}} exec -T {{.IMAGE_NAME}} {{.COMMAND}}'
+    vars:
+      IMAGE_NAME: '{{.IMAGE_NAME | default .APP_NAME}}'
+      COMMAND: '{{.COMMAND}}'
+
+  copy:
+    desc: Copy a file from the running container to a host folder
+    cmds:
+      - "{{.COMPOSE_BIN}} cp {{.IMAGE_NAME}}:{{.CONTAINER_BASE_PATH}}{{.INPUT_FILE}} {{.DEST_FOLDER}}"
+    vars:
+      IMAGE_NAME: "{{.IMAGE_NAME | default .APP_NAME}}"
+      CONTAINER_BASE_PATH: '{{.CONTAINER_BASE_PATH | default "/go/src/olhojogo/"}}'
+      INPUT_FILE: '{{.INPUT_FILE}}'
+      DEST_FOLDER: "{{.DEST_FOLDER}}"
+    requires:
+      vars: [ "INPUT_FILE", "DEST_FOLDER" ]
