@@ -9,7 +9,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
 
-	"github.com/jictyvoo/olympics_data_fetcher/build/entschema/customixins"
+	"github.com/jictyvoo/olhojogo/database/entschema/customixins"
 )
 
 // OlympicEvent holds the schema definition for the OlympicEvent (OlympicEvent) entity.

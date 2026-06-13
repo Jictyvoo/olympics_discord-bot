@@ -7,7 +7,7 @@ import (
 	"entgo.io/ent/schema/index"
 	"github.com/google/uuid"
 
-	"github.com/jictyvoo/olympics_data_fetcher/build/entschema/customixins"
+	"github.com/jictyvoo/olhojogo/database/entschema/customixins"
 )
 
 // Results holds the schema definition for the Results entity.
