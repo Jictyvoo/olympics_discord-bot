@@ -152,7 +152,7 @@ func (d *DirectoryCache) Write(key string, data []byte) error {
 	}
 
 	// Create the file
-	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
 		return err
 	}

@@ -115,7 +115,7 @@ func TestLoadExistentFolderCache(t *testing.T) {
 	testFilePath := filepath.Join(tempDir, testFileName)
 	testData := []byte("test data")
 
-	err = os.WriteFile(testFilePath, testData, 0600)
+	err = os.WriteFile(testFilePath, testData, 0o600)
 	if err != nil {
 		t.Fatal(err)
 	}

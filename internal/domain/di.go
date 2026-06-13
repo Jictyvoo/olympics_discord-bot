@@ -38,7 +38,9 @@ func RegisterServices(inj remy.Injector) {
 				}
 
 				var fetcherUC usecases.FetcherCacheUseCase
-				if fetcherUC, err = remy.DoGet[usecases.FetcherCacheUseCase](retriever); err != nil {
+				if fetcherUC, err = remy.DoGet[usecases.FetcherCacheUseCase](
+					retriever,
+				); err != nil {
 					return nil, err
 				}
 
