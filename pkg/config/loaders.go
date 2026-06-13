@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
-	"github.com/pkg/errors"
 )
 
 type Loader interface {
@@ -62,7 +61,7 @@ func LoadTOML(paths ...string) (config Config, err error) {
 
 		file, err = os.OpenFile(path, os.O_RDONLY, os.ModePerm)
 		if os.IsNotExist(err) || file == nil {
-			err = errors.Wrap(err, fmt.Sprintf("Unable to load config from %s", path))
+			err = fmt.Errorf("unable to load config from %s: %w", path, err)
 			return
 		}
 
