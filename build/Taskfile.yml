@@ -1,0 +1,49 @@
+version: "3"
+
+vars:
+  DATABASE_NAME: "olympics-2024_PARIS.db"
+  MIGRATIONS_DIRECTORY: "build/migrations"
+  SCHEMA_DIRECTORY: "build/entschema"
+  DEV_URL_SQLITE: "sqlite://file?mode=memory&cache=shared&_fk=1"
+
+tasks:
+  migration:hash:
+    desc: Fix the atlas migration hash file
+    dir: "{{.TASKFILE_DIR}}/.."
+    cmds:
+      - atlas migrate hash --dir file://{{.MIGRATIONS_DIRECTORY}}
+
+  migration:gen:
+    desc: Generate a versioned SQL migration from the ent schema
+    dir: "{{.TASKFILE_DIR}}/.."
+    cmds:
+      - atlas migrate diff {{.DIFF_NAME}} --dir "file://{{.MIGRATIONS_DIRECTORY}}" --to ent://{{.SCHEMA_DIRECTORY}} --dev-url "{{.DEV_URL_SQLITE}}"
+      - ./build/remove_backticks.sh "{{.MIGRATIONS_DIRECTORY}}"
+      - task: migration:hash
+
+  migration:apply:
+    desc: Apply pending migrations to the local database
+    dir: "{{.TASKFILE_DIR}}/.."
+    cmds:
+      - atlas migrate apply --dir file://{{.MIGRATIONS_DIRECTORY}} --url "sqlite://{{.DATABASE_NAME}}"
+
+  gen:code:
+    desc: Run go generate and sqlc generate
+    dir: "{{.TASKFILE_DIR}}/.."
+    cmds:
+      - go generate ./...
+      - sqlc generate
+
+  gen:all:
+    desc: Run every generator
+    dir: "{{.TASKFILE_DIR}}/.."
+    cmds:
+      - task: gen:code
+
+  build:bin:
+    desc: Build the project binaries (no CGO by default)
+    dir: "{{.TASKFILE_DIR}}/.."
+    env:
+      CGO_ENABLED: "0"
+    cmds:
+      - go build -ldflags "-w -s" -o ./bin/ ./cmd/...
