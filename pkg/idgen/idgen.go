@@ -1,27 +1,74 @@
-package utils
+package idgen
 
 import (
-	"bytes"
-	"encoding/gob"
-	"fmt"
-	"hash/fnv"
+	"crypto/sha256"
+	"encoding/hex"
+
+	"github.com/google/uuid"
 )
 
-func Hash[T any](object T) (string, error) {
-	h := fnv.New64a() // Create a new FNV-1a 64-bit hash instance
+const canonicalIDByteLen = 16
 
-	// Serialize POSMessageConfig into gob
-	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
-	if err := enc.Encode(object); err != nil {
-		return "", err
+// CanonicalID is a 16-byte identifier, either deterministic (via [From]) or a
+// UUIDv7 (via [NewV7]). Both share one raw-bytes column type for a uniform schema.
+type CanonicalID [16]byte
+
+type ProviderID = string
+
+var Zero CanonicalID
+
+// From derives a CanonicalID from (provider, externalKey). Same inputs always
+// yield the same output, so upserts are safe.
+func From(provider ProviderID, externalKey string) CanonicalID {
+	h := sha256.New()
+	h.Write([]byte(provider))
+	h.Write([]byte{0})
+	h.Write([]byte(externalKey))
+	sum := h.Sum(nil)
+	var id CanonicalID
+	copy(id[:], sum[:16])
+	return id
+}
+
+// NewV7 mints a UUIDv7 CanonicalID for rows with no deterministic source
+// (notifications, alerts, discord_events). Panics only if the system RNG fails.
+func NewV7() CanonicalID {
+	u, err := uuid.NewV7()
+	if err != nil {
+		panic("idgen: NewV7: " + err.Error())
 	}
+	return CanonicalID(u)
+}
 
-	// Write the serialized bytes to the hash
-	if _, err := h.Write(buf.Bytes()); err != nil {
-		return "", err
+// FromBytes copies the first 16 bytes of b, returning Zero if b is shorter.
+func FromBytes(b []byte) CanonicalID {
+	if len(b) < canonicalIDByteLen {
+		return Zero
 	}
+	var id CanonicalID
+	copy(id[:], b[:canonicalIDByteLen])
+	return id
+}
 
-	// Return the resulting hash value as a hexadecimal string
-	return fmt.Sprintf("%x", h.Sum64()), nil
+// Bytes returns a slice aliasing the underlying array; callers must not mutate it.
+func (id CanonicalID) Bytes() []byte {
+	return id[:]
+}
+
+// String returns the hex-encoded ID for logs and debug output, never DB storage.
+func (id CanonicalID) String() string {
+	return hex.EncodeToString(id[:])
+}
+
+func (id CanonicalID) IsZero() bool {
+	return id == Zero
+}
+
+type ExternalID struct {
+	Provider ProviderID
+	Key      string
+}
+
+func (e ExternalID) Canonical() CanonicalID {
+	return From(e.Provider, e.Key)
 }
