@@ -1,0 +1,36 @@
+version: "3"
+
+vars:
+  TOOLS_MODFILE: "tools/go.mod"
+  GOLANGCI_CONFIG: "tools/.golangci.yml"
+
+tasks:
+  install:
+    desc: Download and verify the tools-only module
+    dir: "{{.TASKFILE_DIR}}/.."
+    cmds:
+      - go mod download -modfile={{.TOOLS_MODFILE}}
+
+  fmt:
+    desc: Run gofumpt + goimports + golines via golangci-lint formatters
+    dir: "{{.TASKFILE_DIR}}/.."
+    cmds:
+      - go tool -modfile={{.TOOLS_MODFILE}} golangci-lint fmt --config {{.GOLANGCI_CONFIG}}
+
+  lint:
+    desc: Run the project linter
+    dir: "{{.TASKFILE_DIR}}/.."
+    cmds:
+      - go tool -modfile={{.TOOLS_MODFILE}} golangci-lint run --config {{.GOLANGCI_CONFIG}} ./...
+
+  vuln:
+    desc: Run govulncheck against the module
+    dir: "{{.TASKFILE_DIR}}/.."
+    cmds:
+      - go tool -modfile={{.TOOLS_MODFILE}} govulncheck ./...
+
+  vet:
+    desc: Run go vet over the module
+    dir: "{{.TASKFILE_DIR}}/.."
+    cmds:
+      - go vet ./...
