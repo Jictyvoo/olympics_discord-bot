@@ -1,48 +1,66 @@
-package utils
+package strutil
 
-import (
-	"testing"
+import "testing"
 
-	"github.com/stretchr/testify/assert"
-)
+const sampleAlfaNum = "abc123"
+
+type equalAlfaNumCase struct {
+	name     string
+	a        string
+	b        string
+	expected bool
+}
+
+func runEqualAlfaNumCases(t *testing.T, tests []equalAlfaNumCase) {
+	t.Helper()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := EqualAlfaNum(tt.a, tt.b); got != tt.expected {
+				t.Fatalf("EqualAlfaNum(%q, %q) = %v, want %v", tt.a, tt.b, got, tt.expected)
+			}
+		})
+	}
+}
 
 func TestEqualAlfaNum(t *testing.T) {
-	tests := []struct {
-		name     string
-		a        string
-		b        string
-		expected bool
-	}{
+	tests := []equalAlfaNumCase{
 		{
 			name:     "Identical strings",
-			a:        "abc123",
-			b:        "abc123",
+			a:        sampleAlfaNum,
+			b:        sampleAlfaNum,
 			expected: true,
 		},
 		{
 			name:     "Different strings with same alphanumeric characters",
-			a:        "abc123",
+			a:        sampleAlfaNum,
 			b:        "a.b-c 123!",
 			expected: true,
 		},
 		{
 			name:     "Different strings with different alphanumeric characters",
-			a:        "abc123",
+			a:        sampleAlfaNum,
 			b:        "def456",
 			expected: false,
 		},
 		{
 			name:     "One string is a prefix of the other",
-			a:        "abc123",
+			a:        sampleAlfaNum,
 			b:        "abc",
 			expected: false,
 		},
 		{
 			name:     "Strings with different cases",
-			a:        "abc123",
+			a:        sampleAlfaNum,
 			b:        "ABC123",
 			expected: true,
 		},
+	}
+
+	runEqualAlfaNumCases(t, tests)
+}
+
+func TestEqualAlfaNum_EdgeCases(t *testing.T) {
+	tests := []equalAlfaNumCase{
 		{
 			name:     "Strings with non-alphanumeric characters only",
 			a:        "!@#$%^&*()",
@@ -63,12 +81,5 @@ func TestEqualAlfaNum(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(
-			tt.name, func(t *testing.T) {
-				result := EqualAlfaNum(tt.a, tt.b)
-				assert.Equal(t, tt.expected, result)
-			},
-		)
-	}
+	runEqualAlfaNumCases(t, tests)
 }
