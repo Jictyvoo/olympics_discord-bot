@@ -1,13 +1,20 @@
--- name: GetNotificationByEvent :many
-SELECT id, event_id, event_sha256, status, notified_at
-FROM notified_events
-WHERE notified_events.event_id = ?;
+-- name: UpsertNotification :exec
+INSERT INTO notifications (id, alert_id, channel_id, message_id, status, checksum, sent_at, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, DATETIME('now'), DATETIME('now'))
+ON CONFLICT(id) DO UPDATE SET
+    status     = excluded.status,
+    message_id = excluded.message_id,
+    sent_at    = excluded.sent_at,
+    updated_at = DATETIME('now');
 
+-- name: GetNotificationByID :one
+SELECT * FROM notifications WHERE id = ? LIMIT 1;
 
--- name: MarkEventAsNotified :one
-INSERT INTO notified_events (event_id, event_sha256, status, notified_at)
-VALUES (?, ?, ?, ?)
-ON CONFLICT (event_sha256) DO UPDATE SET event_sha256=excluded.event_sha256,
-                                         status=excluded.status,
-                                         notified_at=excluded.notified_at
-RETURNING id;
+-- name: GetNotificationByChecksum :one
+SELECT * FROM notifications WHERE checksum = ? LIMIT 1;
+
+-- name: UpdateNotificationStatus :exec
+UPDATE notifications SET status = ?, updated_at = DATETIME('now') WHERE id = ?;
+
+-- name: ListNotificationsByAlert :many
+SELECT * FROM notifications WHERE alert_id = ? ORDER BY created_at DESC;

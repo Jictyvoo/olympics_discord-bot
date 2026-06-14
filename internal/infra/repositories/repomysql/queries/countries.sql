@@ -1,7 +1,6 @@
 -- name: UpsertCountry :exec
-INSERT INTO countries (iso2, iso3, ioc_code, name, code_num, population, area_km2, gdp_usd)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT(iso2) DO NOTHING;
+INSERT IGNORE INTO countries (iso2, iso3, ioc_code, name, code_num, population, area_km2, gdp_usd)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: GetCountryByISO2 :one
 SELECT * FROM countries WHERE iso2 = ? LIMIT 1;

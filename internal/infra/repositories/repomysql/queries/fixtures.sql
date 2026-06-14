@@ -1,23 +1,25 @@
 -- name: UpsertFixture :exec
 INSERT INTO fixtures (
     id, provider_id, external_key, stage_id, group_id, venue_id,
-    name, starts_at, ends_at, status, checksum, created_at, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, DATETIME('now'), DATETIME('now'))
-ON CONFLICT(id) DO UPDATE SET
-    name       = excluded.name,
-    starts_at  = excluded.starts_at,
-    ends_at    = excluded.ends_at,
-    status     = excluded.status,
-    checksum   = excluded.checksum,
-    group_id   = excluded.group_id,
-    venue_id   = excluded.venue_id,
-    updated_at = DATETIME('now');
+    name, starts_at, ends_at, status, checksum
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON DUPLICATE KEY UPDATE
+    name       = VALUES(name),
+    starts_at  = VALUES(starts_at),
+    ends_at    = VALUES(ends_at),
+    status     = VALUES(status),
+    checksum   = VALUES(checksum),
+    group_id   = VALUES(group_id),
+    venue_id   = VALUES(venue_id);
 
 -- name: GetFixture :one
 SELECT * FROM fixtures WHERE id = ? LIMIT 1;
 
 -- name: GetFixtureByExternalKey :one
 SELECT * FROM fixtures WHERE provider_id = ? AND external_key = ? LIMIT 1;
+
+-- name: UpdateFixtureChecksum :exec
+UPDATE fixtures SET checksum = ? WHERE id = ?;
 
 -- name: ListFixturesByDay :many
 SELECT * FROM fixtures
@@ -36,7 +38,4 @@ WHERE starts_at <= ?
 ORDER BY starts_at ASC;
 
 -- name: UpdateFixtureStatus :exec
-UPDATE fixtures SET status = ?, updated_at = DATETIME('now') WHERE id = ?;
-
--- name: UpdateFixtureChecksum :exec
-UPDATE fixtures SET checksum = ?, updated_at = DATETIME('now') WHERE id = ?;
+UPDATE fixtures SET status = ? WHERE id = ?;

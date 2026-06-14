@@ -1,14 +1,12 @@
 -- name: UpsertParticipant :exec
 INSERT INTO participants (
-    id, provider_id, external_key, kind, name, code, country_iso, gender,
-    created_at, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, DATETIME('now'), DATETIME('now'))
-ON CONFLICT(id) DO UPDATE SET
-    name        = excluded.name,
-    code        = excluded.code,
-    country_iso = excluded.country_iso,
-    gender      = excluded.gender,
-    updated_at  = DATETIME('now');
+    id, provider_id, external_key, kind, name, code, country_iso, gender
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+ON DUPLICATE KEY UPDATE
+    name        = VALUES(name),
+    code        = VALUES(code),
+    country_iso = VALUES(country_iso),
+    gender      = VALUES(gender);
 
 -- name: GetParticipant :one
 SELECT * FROM participants WHERE id = ? LIMIT 1;
@@ -19,7 +17,7 @@ SELECT * FROM participants WHERE provider_id = ? AND external_key = ? LIMIT 1;
 -- name: UpsertFixtureParticipant :exec
 INSERT INTO fixture_participants (fixture_id, participant_id, role)
 VALUES (?, ?, ?)
-ON CONFLICT(fixture_id, participant_id) DO UPDATE SET role = excluded.role;
+ON DUPLICATE KEY UPDATE role = VALUES(role);
 
 -- name: ListFixtureParticipants :many
 SELECT fp.fixture_id, fp.participant_id, fp.role
