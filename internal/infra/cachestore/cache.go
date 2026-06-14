@@ -1,6 +1,12 @@
-package datasources
+package cachestore
 
-type CacheableDataSource interface {
-	Read(key string) ([]byte, error)
-	Write(key string, data []byte) error
+import (
+	"context"
+	"time"
+)
+
+type Cache interface {
+	Read(ctx context.Context, key string) ([]byte, bool, error)
+	Write(ctx context.Context, key string, value []byte, ttl time.Duration) error
+	Delete(ctx context.Context, key string) error
 }

@@ -1,163 +1,147 @@
-package datasources
+package filecache
 
 import (
+	"context"
 	"io"
 	"maps"
 	"os"
 	"path/filepath"
 	"strconv"
 	"time"
-
-	"github.com/jictyvoo/olympics_data_fetcher/internal/utils"
 )
 
-func loadExistentFolderCache(folder string) (map[string]cacheData, error) {
-	result := make(map[string]cacheData)
+const (
+	cacheDirPerm           os.FileMode = 0o750
+	cacheFilePerm          os.FileMode = 0o600
+	defaultCacheTTLMinutes             = 4
+)
 
-	// Read the directory contents
-	files, err := os.ReadDir(folder)
+func createDirIfNotExist(path string) error {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return os.MkdirAll(path, cacheDirPerm)
+	}
+	return nil
+}
+
+type entry struct {
+	key        string
+	identifier string
+	content    []byte
+}
+
+type FileCache struct {
+	rootPath   string
+	defaultTTL time.Duration
+	loaded     map[string]entry
+}
+
+func New(rootPath string, defaultTTL time.Duration) (*FileCache, error) {
+	if err := createDirIfNotExist(rootPath); err != nil {
+		return nil, err
+	}
+	if defaultTTL == 0 {
+		defaultTTL = defaultCacheTTLMinutes * time.Minute
+	}
+	c := &FileCache{rootPath: rootPath, defaultTTL: defaultTTL}
+	var err error
+	c.loaded, err = loadDir(rootPath)
+	return c, err
+}
+
+func loadDir(dir string) (map[string]entry, error) {
+	result := make(map[string]entry)
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, err
 	}
-
-	// Iterate over the directory contents
-	for _, file := range files {
-		// Skip directories
-		if file.IsDir() {
-			subDirCache, subErr := loadExistentFolderCache(filepath.Join(folder, file.Name()))
+	for _, f := range files {
+		path := filepath.Join(dir, f.Name())
+		if f.IsDir() {
+			sub, subErr := loadDir(path)
 			if subErr == nil {
-				maps.Copy(result, subDirCache)
+				maps.Copy(result, sub)
 			}
 			continue
 		}
-
-		// Read the file content
-		filePath := filepath.Join(folder, file.Name())
-		content, readErr := os.ReadFile(filePath)
+		data, readErr := os.ReadFile(filepath.Clean(path))
 		if readErr != nil {
 			return nil, readErr
 		}
-
-		// Add the file name and content to the map
-		result[file.Name()] = cacheData{
-			key:        file.Name(),
-			identifier: filePath,
-			content:    content,
-		}
+		result[f.Name()] = entry{key: f.Name(), identifier: path, content: data}
 	}
-
 	return result, nil
 }
 
-type (
-	cacheData struct {
-		key        string
-		identifier string
-		content    []byte
+func (c *FileCache) Read(_ context.Context, key string) ([]byte, bool, error) {
+	filename := filepath.Join(c.rootPath, c.subDir(0), key)
+	if e, ok := c.loaded[key]; ok && e.identifier == filename {
+		return e.content, true, nil
 	}
-	DirectoryCache struct {
-		rootPath      string
-		folderRef     *os.File
-		loadedCache   map[string]cacheData
-		cacheDuration time.Duration
-	}
-)
-
-func NewDirectoryCache(rootPath string, cacheDuration time.Duration) (*DirectoryCache, error) {
-	if err := utils.CreateDirIfNotExist(rootPath); err != nil {
-		return nil, err
-	}
-	folderRef, err := os.Open(rootPath)
-	instanceCache := DirectoryCache{
-		rootPath:      rootPath,
-		folderRef:     folderRef,
-		cacheDuration: cacheDuration,
+	data, err := os.ReadFile(filepath.Clean(filename))
+	if os.IsNotExist(err) {
+		return nil, false, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
-
-	instanceCache.loadedCache, err = loadExistentFolderCache(folderRef.Name())
-	if instanceCache.cacheDuration == 0 {
-		instanceCache.cacheDuration = 4 * time.Minute
-	}
-	return &instanceCache, err
+	c.loaded[key] = entry{key: key, identifier: filename, content: data}
+	return data, true, nil
 }
 
-func (d *DirectoryCache) subFolderName() string {
+func (c *FileCache) Write(_ context.Context, key string, value []byte, ttl time.Duration) error {
+	subDir := filepath.Join(c.rootPath, c.subDir(ttl))
+	filename := filepath.Join(subDir, key)
+	c.loaded[key] = entry{key: key, identifier: filename, content: value}
+	if err := createDirIfNotExist(subDir); err != nil {
+		return err
+	}
+	f, err := os.OpenFile(
+		filepath.Clean(filename),
+		os.O_WRONLY|os.O_CREATE|os.O_TRUNC,
+		cacheFilePerm,
+	)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = f.Close() }()
+	_, err = io.WriteString(f, "")
+	if err != nil {
+		return err
+	}
+	_, err = f.Write(value)
+	return err
+}
+
+func (c *FileCache) Delete(_ context.Context, key string) error {
+	e, ok := c.loaded[key]
+	if !ok {
+		return nil
+	}
+	delete(c.loaded, key)
+	return os.Remove(e.identifier)
+}
+
+func (c *FileCache) subDir(ttl time.Duration) string {
+	if ttl == 0 {
+		ttl = c.defaultTTL
+	}
 	now := time.Now()
-	subFolderName := now.Format("20060102")
+	base := now.Format("20060102")
 	day := now.Day()
 	hour := now.Hour()
-	var divisionResult int
+	var div int
 	switch {
-	case d.cacheDuration < time.Hour:
-		divisionResult = now.Minute() / int(d.cacheDuration.Minutes())
-	case d.cacheDuration < 24*time.Hour:
-		divisionResult = now.Hour() / int(d.cacheDuration.Hours())
+	case ttl < time.Hour:
+		div = now.Minute() / int(ttl.Minutes())
+	case ttl < 24*time.Hour:
+		div = now.Hour() / int(ttl.Hours())
 		hour = 0
 	}
-	subFolderName += d.cacheDuration.String() +
-		"#" + strconv.Itoa(day) +
-		"@" + strconv.Itoa(hour) +
-		"__" + strconv.Itoa(divisionResult)
-
-	return subFolderName
-}
-
-func (d *DirectoryCache) Read(key string) ([]byte, error) {
-	subFolderName := d.subFolderName()
-	filename := filepath.Join(d.rootPath, subFolderName, key)
-	if cData, ok := d.loadedCache[key]; ok {
-		// Check if the identifier is the filename
-		if cData.identifier == filename {
-			return cData.content, nil
-		}
-	}
-
-	// Read from file
-	file, err := os.Open(filename)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	content, err := io.ReadAll(file)
-	if err != nil {
-		return nil, err
-	}
-
-	// Store the cData in the cache
-	d.writeMemory(key, filename, content)
-
-	return content, nil
-}
-
-func (d *DirectoryCache) writeMemory(key string, filename string, data []byte) {
-	d.loadedCache[key] = cacheData{
-		key:        key,
-		identifier: filename,
-		content:    data,
-	}
-}
-
-func (d *DirectoryCache) Write(key string, data []byte) error {
-	subFolderName := filepath.Join(d.rootPath, d.subFolderName())
-	filename := filepath.Join(subFolderName, key)
-
-	d.writeMemory(key, filename, data)
-	// Ensure that the folder exists
-	if err := utils.CreateDirIfNotExist(subFolderName); err != nil {
-		return err
-	}
-
-	// Create the file
-	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
-	if err != nil {
-		return err
-	}
-
-	defer file.Close()
-	_, err = file.Write(data)
-	return err
+	return base + ttl.String() + "#" + strconv.Itoa(
+		day,
+	) + "@" + strconv.Itoa(
+		hour,
+	) + "__" + strconv.Itoa(
+		div,
+	)
 }
