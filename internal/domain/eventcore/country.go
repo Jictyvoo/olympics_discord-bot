@@ -1,60 +1,36 @@
-package entities
+package eventcore
 
-import (
-	_ "embed"
-	"encoding/json"
-	"strings"
-)
+import "strings"
 
-var (
-	//go:embed country_data.json
-	countriesFileContents []byte
-	countriesData         = map[string]CountryInfo{}
-)
-
-func init() {
-	if err := json.Unmarshal(countriesFileContents, &countriesData); err != nil {
-		panic(err)
-	}
-}
-
-type CountryInfo struct {
-	Name       string
-	CodeNum    string
-	ISOCode    [2]string
+type Country struct {
+	ISO2       string
+	ISO3       string
 	IOCCode    string
-	Population uint64
+	Name       string
+	CodeNum    int
+	Population int64
 	AreaKm2    float64
-	GDPUSD     string
+	GDPUSD     float64
 }
 
-func (c CountryInfo) EmojiFlag() string {
-	return "flag_" + strings.ToLower(c.ISOCode[0])
+// EmojiFlag derives the Discord flag-emoji shortcode from the ISO2 code
+// (e.g. "BR" -> ":flag_br:"), or "" when ISO2 is empty.
+func (c Country) EmojiFlag() string {
+	if c.ISO2 == "" {
+		return ""
+	}
+	return ":flag_" + strings.ToLower(c.ISO2) + ":"
 }
 
-func (c CountryInfo) IsThis(value string) bool {
-	switch value = strings.ToLower(value); value {
+// IsThis matches value against name, IOC, ISO2 or ISO3 (case-insensitive).
+func (c Country) IsThis(value string) bool {
+	value = strings.ToLower(value)
+	switch value {
 	case strings.ToLower(c.Name),
 		strings.ToLower(c.IOCCode),
-		strings.ToLower(c.ISOCode[0]),
-		strings.ToLower(c.ISOCode[1]):
-		return true
+		strings.ToLower(c.ISO2),
+		strings.ToLower(c.ISO3):
+		return value != ""
 	}
 	return false
-}
-
-func GetCountryByCode(countryCode string) CountryInfo {
-	found, ok := countriesData[countryCode]
-	if ok {
-		return found
-	}
-
-	for _, country := range countriesData {
-		if country.IOCCode == countryCode || country.ISOCode[0] == countryCode ||
-			country.ISOCode[1] == countryCode {
-			return country
-		}
-	}
-
-	return CountryInfo{IOCCode: countryCode, ISOCode: [2]string{countryCode}, Name: countryCode}
 }

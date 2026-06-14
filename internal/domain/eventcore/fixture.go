@@ -1,122 +1,107 @@
-package entities
+package eventcore
 
 import (
-	"slices"
-	"strconv"
-	"strings"
+	"crypto/sha256"
+	"encoding/json"
+	"fmt"
+	"sort"
 	"time"
-
-	"github.com/jictyvoo/olympics_data_fetcher/internal/utils"
 )
 
-type (
-	Identifier uint64
-	HexID      string
-)
-
-type Gender uint8
+type FixtureStatus string
 
 const (
-	GenderOther Gender = iota
-	GenderMasc
-	GenderFem
+	FixtureScheduled FixtureStatus = "scheduled"
+	FixtureLive      FixtureStatus = "live"
+	FixtureFinished  FixtureStatus = "finished"
+	FixtureCancelled FixtureStatus = "cancelled"
+	FixturePostponed FixtureStatus = "postponed"
 )
 
-func (g Gender) String() string {
-	switch g {
-	case GenderMasc:
-		return "Male"
-	case GenderFem:
-		return "Female"
-	default:
-		return "Other"
+func (s FixtureStatus) Valid() bool {
+	switch s {
+	case FixtureScheduled, FixtureLive, FixtureFinished, FixtureCancelled, FixturePostponed:
+		return true
 	}
+	return false
 }
 
-type EventStatus string
-
-const (
-	StatusScheduled EventStatus = "scheduled"
-	StatusOngoing   EventStatus = "ongoing"
-	StatusFinished  EventStatus = "finished"
-)
-
-type UnitType string
-
-type OlympicEvent struct {
-	ID                  Identifier
-	EventName           string
-	Discipline          Discipline
-	Phase               string
-	Gender              Gender
-	SessionCode         string
-	UnitType            UnitType
-	StartAt             time.Time
-	EndAt               time.Time
-	Status              EventStatus
-	HasMedal            bool
-	Competitors         []OlympicCompetitors
-	ResultPerCompetitor map[string]Results
+type FixtureParticipant struct {
+	ParticipantID CanonicalID
+	Role          string // provider-defined, e.g. "home", "away", "athlete"
 }
 
-//goland:noinspection GoMixedReceiverTypes
-func (oe OlympicEvent) SHAIdentifier() string {
-	competitorsResults := make([]utils.KeyValueEntry[Results], len(oe.ResultPerCompetitor))
-	var index int
-	for code, compResult := range oe.ResultPerCompetitor {
-		competitorsResults[index] = utils.KeyValueEntry[Results]{
-			Key:   code,
-			Value: compResult,
-		}
-		index++
-	}
-
-	oe.ResultPerCompetitor = nil
-	var comparator struct {
-		OlympicEvent
-		ResultsPerCompetitor []utils.KeyValueEntry[Results]
-	}
-	comparator.OlympicEvent = oe
-	comparator.ResultsPerCompetitor = competitorsResults
-	slices.SortFunc(comparator.ResultsPerCompetitor, utils.KeyValueEntry[Results].Compare)
-	if hash, err := utils.Hash(comparator); err == nil && len(hash) > 0 {
-		return hash
-	}
-
-	return ""
+type Fixture struct {
+	ID           CanonicalID
+	Ext          ExternalID
+	StageID      CanonicalID
+	GroupID      *CanonicalID
+	VenueID      *CanonicalID
+	Name         string
+	StartsAt     time.Time
+	EndsAt       time.Time
+	Status       FixtureStatus
+	Checksum     string // SHA-256 of normalised payload; gates re-notification
+	Participants []FixtureParticipant
 }
 
-//goland:noinspection GoMixedReceiverTypes
-func (oe *OlympicEvent) Normalize() {
-	oe.StartAt = oe.StartAt.In(time.UTC)
-	oe.EndAt = oe.EndAt.In(time.UTC)
-	slices.SortFunc(
-		oe.Competitors, func(a, b OlympicCompetitors) int {
-			var results struct{ a, b Results }
-			results.a = oe.ResultPerCompetitor[a.Code]
-			results.b = oe.ResultPerCompetitor[b.Code]
-			if results.a.MedalType != MedalNoMedal || results.b.MedalType != MedalNoMedal {
-				return results.b.MedalType.CompareTo(results.a.MedalType)
-			}
-			if results.a.Mark != "" || results.b.Mark != "" {
-				return compareMark(results.b.Mark, results.a.Mark)
-			}
-
-			return strings.Compare(a.Code, b.Code)
-		},
-	)
+// ComputeChecksum returns the fixture-only checksum (no results). Equivalent to
+// ComputeChecksumWith(nil); kept for call sites that have no results to hash.
+func (f Fixture) ComputeChecksum() string {
+	return f.ComputeChecksumWith(nil)
 }
 
-func compareMark(a, b string) int {
-	// Try to compare as float
-	var (
-		fA, fB float64
-		err    [2]error
-	)
-	fA, err[0] = strconv.ParseFloat(a, 64)
-	fB, err[1] = strconv.ParseFloat(b, 64)
-	if err[0] == nil && err[1] == nil {
-		return int(fA - fB)
+// ComputeChecksumWith returns a stable hex-encoded SHA-256 over the fixture's
+// fields and its results: the data that, when changed, should trigger a
+// re-notification or re-sync. Participants and results are sorted first so
+// upstream ordering can never churn the checksum. The receiver is not modified.
+func (f Fixture) ComputeChecksumWith(results []Result) string {
+	type stableResult struct {
+		ParticipantID string
+		Position      *int
+		Score         string
+		RawMark       string
+		Outcome       Outcome
 	}
-	return strings.Compare(a, b)
+	type stable struct {
+		ExtKey   string
+		Name     string
+		StartsAt time.Time
+		EndsAt   time.Time
+		Status   FixtureStatus
+		Parts    []FixtureParticipant
+		Results  []stableResult
+	}
+
+	parts := make([]FixtureParticipant, len(f.Participants))
+	copy(parts, f.Participants)
+	sort.Slice(parts, func(i, j int) bool {
+		return parts[i].ParticipantID.String() < parts[j].ParticipantID.String()
+	})
+
+	stableResults := make([]stableResult, 0, len(results))
+	for _, r := range results {
+		stableResults = append(stableResults, stableResult{
+			ParticipantID: r.ParticipantID.String(),
+			Position:      r.Position,
+			Score:         r.Score,
+			RawMark:       r.RawMark,
+			Outcome:       r.Outcome,
+		})
+	}
+	sort.Slice(stableResults, func(i, j int) bool {
+		return stableResults[i].ParticipantID < stableResults[j].ParticipantID
+	})
+
+	payload, _ := json.Marshal(stable{
+		ExtKey:   f.Ext.Key,
+		Name:     f.Name,
+		StartsAt: f.StartsAt.UTC(),
+		EndsAt:   f.EndsAt.UTC(),
+		Status:   f.Status,
+		Parts:    parts,
+		Results:  stableResults,
+	})
+	sum := sha256.Sum256(payload)
+	return fmt.Sprintf("%x", sum)
 }

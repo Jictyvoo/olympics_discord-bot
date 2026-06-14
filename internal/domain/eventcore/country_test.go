@@ -1,73 +1,65 @@
-package entities
+package eventcore
 
 import "testing"
 
-func TestEmojiFlag(t *testing.T) {
-	tests := []struct {
-		country CountryInfo
-		want    string
+func TestCountry_EmojiFlag(t *testing.T) {
+	testCases := []struct {
+		name string
+		iso2 string
+		want string
 	}{
-		{CountryInfo{ISOCode: [2]string{"BR", "BRA"}}, "flag_br"},
-		{CountryInfo{ISOCode: [2]string{"JP", "JPN"}}, "flag_jp"},
+		{name: "lowercase iso2", iso2: "br", want: flagBR},
+		{name: "uppercase iso2", iso2: "BR", want: flagBR},
+		{name: "mixed case iso2", iso2: "Us", want: ":flag_us:"},
+		{name: "empty iso2", iso2: "", want: ""},
 	}
 
-	for _, tt := range tests {
-		t.Run(
-			tt.country.ISOCode[0], func(t *testing.T) {
-				if got := tt.country.EmojiFlag(); got != tt.want {
-					t.Errorf("EmojiFlag() = %v, want %v", got, tt.want)
-				}
-			},
-		)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := Country{ISO2: tc.iso2}
+			if got := c.EmojiFlag(); got != tc.want {
+				t.Errorf("EmojiFlag() = %q, want %q", got, tc.want)
+			}
+		})
 	}
 }
 
-func TestIsThis(t *testing.T) {
-	tests := []struct {
-		country CountryInfo
-		value   string
-		want    bool
-	}{
-		{countriesData["BRA"], "Brazil", true},
-		{countriesData["BRA"], "bra", true},
-		{countriesData["BRA"], "BR", true},
-		{countriesData["BRA"], "JPN", false},
-		{countriesData["JPN"], "Japan", true},
-		{countriesData["JPN"], "jp", true},
-		{countriesData["JPN"], "JPN", true},
-		{countriesData["JPN"], "BRA", false},
+func TestCountry_IsThis(t *testing.T) {
+	country := Country{
+		ISO2:    "BR",
+		ISO3:    bra,
+		IOCCode: bra,
+		Name:    brazil,
 	}
 
-	for _, tt := range tests {
-		t.Run(
-			tt.value, func(t *testing.T) {
-				if got := tt.country.IsThis(tt.value); got != tt.want {
-					t.Errorf("IsThis() = %v, want %v", got, tt.want)
-				}
-			},
-		)
+	testCases := []struct {
+		name  string
+		value string
+		want  bool
+	}{
+		{name: "matches name", value: brazil, want: true},
+		{name: "matches name case-insensitive", value: "brazil", want: true},
+		{name: "matches iso2", value: "br", want: true},
+		{name: "matches iso3", value: "bra", want: true},
+		{name: "matches ioc code", value: bra, want: true},
+		{name: "no match", value: "Argentina", want: false},
+		{name: "empty value", value: "", want: false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := country.IsThis(tc.value); got != tc.want {
+				t.Errorf("IsThis(%q) = %v, want %v", tc.value, got, tc.want)
+			}
+		})
 	}
 }
 
-func TestGetCountryByCode(t *testing.T) {
-	tests := []struct {
-		countryCode string
-		want        CountryInfo
-	}{
-		{"BRA", countriesData["BRA"]},
-		{"BR", countriesData["BRA"]},
-		{"JPN", countriesData["JPN"]},
-		{"JP", countriesData["JPN"]},
-		{"ARG", countriesData["ARG"]},
-	}
-
-	for _, tt := range tests {
-		t.Run(
-			tt.countryCode, func(t *testing.T) {
-				if got := GetCountryByCode(tt.countryCode); got != tt.want {
-					t.Errorf("GetCountryByCode() = %v, want %v", got, tt.want)
-				}
-			},
-		)
+func TestCountry_IsThis_EmptyFieldsDoNotMatchEmptyValue(t *testing.T) {
+	// A country with no ISO2 must not report an empty query as a match, since
+	// every empty field would otherwise collapse to the same "" case.
+	country := Country{Name: "Nowhere"}
+	if country.IsThis("") {
+		t.Error("IsThis(\"\") = true, want false for unset codes")
 	}
 }

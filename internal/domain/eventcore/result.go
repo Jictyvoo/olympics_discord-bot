@@ -1,90 +1,39 @@
-package entities
+package eventcore
 
-import "strings"
-
-type medalType string
+type Outcome string
 
 const (
-	MedalNoMedal medalType = ""
-	MedalBronze  medalType = "bronze"
-	MedalSilver  medalType = "silver"
-	MedalGold    medalType = "gold"
-	MedalWinner  medalType = "winner"
-	MedalLoser   medalType = "loser"
+	OutcomeNone        Outcome = ""
+	OutcomeWin         Outcome = "win"
+	OutcomeLoss        Outcome = "loss"
+	OutcomeDraw        Outcome = "draw"
+	OutcomeMedalGold   Outcome = "medal_gold"
+	OutcomeMedalSilver Outcome = "medal_silver"
+	OutcomeMedalBronze Outcome = "medal_bronze"
 )
 
-//goland:noinspection GoExportedFuncWithUnexportedType
-func Medal(value string) medalType {
-	value = strings.ToLower(value)
-	switch value {
-	case "w", string(MedalWinner):
-		return MedalWinner
-	case "l", string(MedalLoser):
-		return MedalLoser
-	case "b", string(MedalBronze):
-		return MedalBronze
-	case "s", string(MedalSilver):
-		return MedalSilver
-	case "g", string(MedalGold):
-		return MedalGold
+func (o Outcome) Valid() bool {
+	switch o {
+	case OutcomeNone, OutcomeWin, OutcomeLoss, OutcomeDraw,
+		OutcomeMedalGold, OutcomeMedalSilver, OutcomeMedalBronze:
+		return true
 	}
-
-	switch {
-	case strings.Contains(value, "bronze"):
-		return MedalBronze
-	case strings.Contains(value, "silver"):
-		return MedalSilver
-	case strings.Contains(value, "gold"):
-		return MedalGold
-	}
-
-	return MedalNoMedal
+	return false
 }
 
-func (m medalType) String() string {
-	switch m {
-	case MedalBronze:
-		return ":third_place:"
-	case MedalSilver:
-		return ":second_place:"
-	case MedalGold:
-		return ":first_place:"
-	}
-
-	return string(m)
+type Result struct {
+	FixtureID     CanonicalID
+	ParticipantID CanonicalID
+	Position      *int
+	Score         string
+	RawMark       string
+	Outcome       Outcome
 }
 
-func (m medalType) value() int {
-	switch m {
-	case MedalBronze:
-		return 3
-	case MedalSilver:
-		return 5
-	case MedalGold:
-		return 7
-	case MedalLoser:
-		return 1
-	case MedalWinner:
-		return 2
-	}
-
-	return 0
-}
-
-func (m medalType) CompareTo(other medalType) int {
-	result := m.value() - other.value()
-	if result < 0 {
-		return -1
-	} else if result > 1 {
-		return 1
-	}
-
-	return 0
-}
-
-type Results struct {
-	Position  string
-	Mark      string
-	MedalType medalType
-	Irm       string
+type Standing struct {
+	StageID       CanonicalID
+	ParticipantID CanonicalID
+	Rank          int
+	Points        int
+	Stats         map[string]any
 }

@@ -1,208 +1,129 @@
-package entities
+package eventcore
 
 import (
-	"math/rand"
-	"strconv"
 	"testing"
 	"time"
-
-	"github.com/stretchr/testify/assert"
 )
 
-func TestOlympicEvent_SHAIdentifier(t *testing.T) {
-	testCompetitors := mockOlympicCompetitors()
-	tests := [...]struct {
-		name  string
-		event OlympicEvent
+func TestFixtureStatus_Valid(t *testing.T) {
+	testCases := []struct {
+		name   string
+		status FixtureStatus
+		want   bool
 	}{
-		{
-			name: "Simple Event without Competitors",
-			event: OlympicEvent{
-				ID:                  58964455,
-				EventName:           "200m Freestyle",
-				Discipline:          Discipline{Name: "Swimming"},
-				Phase:               "Semifinal",
-				Gender:              GenderMasc,
-				SessionCode:         "#56__EF4",
-				StartAt:             time.Now(),
-				EndAt:               time.Now().Add(time.Hour),
-				Status:              StatusScheduled,
-				Competitors:         nil,
-				ResultPerCompetitor: nil,
-			},
-		},
-		{
-			name: "With 2 competitors",
-			event: OlympicEvent{
-				Discipline: Discipline{Name: "Athletics"},
-				Gender:     1,
-				Phase:      "Final",
-				EventName:  "100m",
-				Competitors: []OlympicCompetitors{
-					testCompetitors[0],
-					testCompetitors[1],
-				},
-			},
-		},
-		{
-			name: "With result per competitor",
-			event: OlympicEvent{
-				ID:          25564329,
-				EventName:   "Men's Basketball",
-				Discipline:  Discipline{Name: "Basketball"},
-				Phase:       "Quarterfinal",
-				Gender:      GenderFem,
-				SessionCode: "#54__4EDF",
-				StartAt:     time.Now(),
-				EndAt:       time.Now().Add(time.Hour),
-				Status:      StatusFinished,
-				Competitors: testCompetitors[:],
-				ResultPerCompetitor: func() map[string]Results {
-					resultList := make(map[string]Results, len(testCompetitors))
-					medalList := []medalType{
-						MedalNoMedal, MedalGold, MedalSilver,
-						MedalBronze, MedalWinner, MedalLoser,
-					}
-					for index, competitor := range testCompetitors {
-						resultList[competitor.Code] = Results{
-							Position:  strconv.Itoa(index),
-							Mark:      strconv.Itoa(rand.Int() % 110),
-							MedalType: medalList[rand.Intn(len(medalList))],
-							Irm:       "",
-						}
-					}
-					return resultList
-				}(),
-			},
-		},
+		{"scheduled", FixtureScheduled, true},
+		{"live", FixtureLive, true},
+		{"finished", FixtureFinished, true},
+		{"cancelled", FixtureCancelled, true},
+		{"postponed", FixturePostponed, true},
+		{"empty", "", false},
+		{unknownProvider, unknownProvider, false},
 	}
-
-	for _, tt := range tests {
-		t.Run(
-			tt.name, func(t *testing.T) {
-				const totalChecks = 11
-				originalResult := tt.event.SHAIdentifier()
-				for range totalChecks {
-					time.Sleep(time.Millisecond)
-					if newResult := tt.event.SHAIdentifier(); newResult != originalResult {
-						t.Fatalf(
-							"Expected SHAIdentifier to produce the same SHAIdentifier. Got: %v, Want: %v",
-							originalResult,
-							newResult,
-						)
-					}
-				}
-			},
-		)
+	for _, tCase := range testCases {
+		t.Run(tCase.name, func(t *testing.T) {
+			if got := tCase.status.Valid(); got != tCase.want {
+				t.Fatalf("Valid() = %v, want %v", got, tCase.want)
+			}
+		})
 	}
 }
 
-func TestOlympicEvent_Normalize(t *testing.T) {
-	mockDates := [...]time.Time{
-		time.Date(2024, time.August, 3, 12, 0, 0, 0, time.Local),
-		time.Date(2024, time.August, 3, 15, 0, 0, 0, time.Local),
-		time.Date(2024, time.August, 3, 15, 0, 0, 0, time.UTC),
-		time.Date(2024, time.August, 3, 18, 0, 0, 0, time.UTC),
+func TestFixture_ComputeChecksum_Stable(t *testing.T) {
+	base := Fixture{
+		Ext:      ExternalID{Provider: "olympics", Key: "EV-001"},
+		Name:     "100m Final",
+		StartsAt: time.Date(2024, 8, 4, 20, 0, 0, 0, time.UTC),
+		EndsAt:   time.Date(2024, 8, 4, 21, 0, 0, 0, time.UTC),
+		Status:   FixtureScheduled,
 	}
-	mockCompetitors := mockOlympicCompetitors()
-
-	tests := []struct {
-		name                string
-		event               OlympicEvent
-		expectedStartAt     time.Time
-		expectedEndAt       time.Time
-		expectedCompetitors []OlympicCompetitors
+	testCases := []struct {
+		name string
+		a, b Fixture
+		same bool
 	}{
+		{"identical fixtures produce same checksum", base, base, true},
 		{
-			name: "Basic normalization and sorting",
-			event: OlympicEvent{
-				StartAt: mockDates[0],
-				EndAt:   mockDates[1],
-				Competitors: []OlympicCompetitors{
-					mockCompetitors[1], mockCompetitors[0], mockCompetitors[2], mockCompetitors[3],
-				},
-				ResultPerCompetitor: map[string]Results{
-					mockCompetitors[0].Code: {MedalType: MedalGold, Mark: "10.0"},
-					mockCompetitors[1].Code: {MedalType: MedalSilver, Mark: "9.0"},
-					mockCompetitors[2].Code: {MedalType: MedalBronze, Mark: "8.0"},
-				},
-			},
-			expectedStartAt: mockDates[2],
-			expectedEndAt:   mockDates[3],
-			expectedCompetitors: []OlympicCompetitors{
-				mockCompetitors[0], mockCompetitors[1], mockCompetitors[2], mockCompetitors[3],
-			},
+			"different status differs",
+			base,
+			func() Fixture { f := base; f.Status = FixtureFinished; return f }(),
+			false,
 		},
 		{
-			name: "Sorting with no medals",
-			event: OlympicEvent{
-				StartAt: mockDates[0],
-				EndAt:   mockDates[1],
-				Competitors: []OlympicCompetitors{
-					mockCompetitors[0], mockCompetitors[1], mockCompetitors[2],
-				},
-				ResultPerCompetitor: map[string]Results{
-					mockCompetitors[0].Code: {MedalType: MedalNoMedal, Mark: "10"},
-					mockCompetitors[1].Code: {MedalType: MedalNoMedal, Mark: "9"},
-					mockCompetitors[2].Code: {MedalType: MedalNoMedal, Mark: "8.0"},
-				},
-			},
-			expectedStartAt: mockDates[2],
-			expectedEndAt:   mockDates[3],
-			expectedCompetitors: []OlympicCompetitors{
-				mockCompetitors[0], mockCompetitors[1], mockCompetitors[2],
-			},
+			"different name differs",
+			base,
+			func() Fixture { f := base; f.Name = "200m Final"; return f }(),
+			false,
 		},
-		{
-			name: "Sorting based on a time mark without a competitor result",
-			event: OlympicEvent{
-				StartAt: mockDates[0],
-				EndAt:   mockDates[1],
-				Competitors: []OlympicCompetitors{
-					mockCompetitors[5], mockCompetitors[6], mockCompetitors[4],
-				},
-				ResultPerCompetitor: map[string]Results{
-					mockCompetitors[5].Code: {MedalType: MedalNoMedal, Mark: "9:16.28"},
-					mockCompetitors[6].Code: {MedalType: MedalNoMedal, Mark: "9:01.78"},
-				},
-			},
-			expectedStartAt: mockDates[2],
-			expectedEndAt:   mockDates[3],
-			expectedCompetitors: []OlympicCompetitors{
-				mockCompetitors[5], mockCompetitors[6], mockCompetitors[4],
-			},
-		},
-		{
-			name: "Sorting with mixed medals and marks",
-			event: OlympicEvent{
-				StartAt: mockDates[0],
-				EndAt:   mockDates[1],
-				Competitors: []OlympicCompetitors{
-					mockCompetitors[0], mockCompetitors[1], mockCompetitors[2],
-				},
-				ResultPerCompetitor: map[string]Results{
-					mockCompetitors[0].Code: {MedalType: MedalNoMedal, Mark: "10.0"},
-					mockCompetitors[1].Code: {MedalType: MedalBronze, Mark: "8.0"},
-					mockCompetitors[2].Code: {MedalType: MedalSilver, Mark: "9.0"},
-				},
-			},
-			expectedStartAt: mockDates[2],
-			expectedEndAt:   mockDates[3],
-			expectedCompetitors: []OlympicCompetitors{
-				mockCompetitors[2], mockCompetitors[1], mockCompetitors[0],
-			},
-		},
+		{"UTC normalisation", base, func() Fixture {
+			f := base
+			f.StartsAt = base.StartsAt.In(time.FixedZone("UTC+3", 3*3600))
+			return f
+		}(), true},
 	}
+	for _, tCase := range testCases {
+		t.Run(tCase.name, func(t *testing.T) {
+			ca, cb := tCase.a.ComputeChecksum(), tCase.b.ComputeChecksum()
+			if (ca == cb) != tCase.same {
+				t.Fatalf("checksum match=%v, want %v (a=%q b=%q)", ca == cb, tCase.same, ca, cb)
+			}
+		})
+	}
+}
 
-	for _, tt := range tests {
-		t.Run(
-			tt.name, func(t *testing.T) {
-				tt.event.Normalize()
+func TestFixture_ComputeChecksumWith_Results(t *testing.T) {
+	fixture := Fixture{
+		Ext:      ExternalID{Provider: "olympics", Key: "EV-001"},
+		Name:     "100m Final",
+		StartsAt: time.Date(2024, 8, 4, 20, 0, 0, 0, time.UTC),
+		EndsAt:   time.Date(2024, 8, 4, 21, 0, 0, 0, time.UTC),
+		Status:   FixtureFinished,
+	}
+	pidA := NewID("olympics", "ATH-A")
+	pidB := NewID("olympics", "ATH-B")
+	gold := []Result{
+		{ParticipantID: pidA, Score: "9.81", Outcome: OutcomeMedalGold},
+		{ParticipantID: pidB, Score: "9.90", Outcome: OutcomeMedalSilver},
+	}
+	silverSwapped := []Result{
+		{ParticipantID: pidA, Score: "9.81", Outcome: OutcomeMedalSilver},
+		{ParticipantID: pidB, Score: "9.90", Outcome: OutcomeMedalGold},
+	}
+	reordered := []Result{gold[1], gold[0]}
 
-				assert.Equal(t, tt.expectedStartAt, tt.event.StartAt)
-				assert.Equal(t, tt.expectedEndAt, tt.event.EndAt)
-				assert.Equal(t, tt.expectedCompetitors, tt.event.Competitors)
-			},
-		)
+	t.Run("results fold into the checksum", func(t *testing.T) {
+		if fixture.ComputeChecksum() == fixture.ComputeChecksumWith(gold) {
+			t.Fatal("expected results to change the checksum vs the fixture-only checksum")
+		}
+	})
+	t.Run("a medal change re-flips the checksum", func(t *testing.T) {
+		if fixture.ComputeChecksumWith(gold) == fixture.ComputeChecksumWith(silverSwapped) {
+			t.Fatal("expected a medal/outcome change to produce a different checksum")
+		}
+	})
+	t.Run("result ordering is stable", func(t *testing.T) {
+		if fixture.ComputeChecksumWith(gold) != fixture.ComputeChecksumWith(reordered) {
+			t.Fatal("expected checksum to be independent of result ordering")
+		}
+	})
+}
+
+func TestCountry_EmojiFlag_IsThis(t *testing.T) {
+	const bra = "BRA"
+	br := Country{ISO2: "BR", ISO3: bra, IOCCode: bra, Name: "Brazil"}
+	if got := br.EmojiFlag(); got != ":flag_br:" {
+		t.Fatalf("EmojiFlag() = %q, want :flag_br:", got)
+	}
+	if got := (Country{}).EmojiFlag(); got != "" {
+		t.Fatalf("EmojiFlag() on empty country = %q, want empty", got)
+	}
+	for _, v := range []string{"brazil", bra, "br", "bra"} {
+		if !br.IsThis(v) {
+			t.Fatalf("IsThis(%q) = false, want true", v)
+		}
+	}
+	for _, v := range []string{"", "argentina", "usa"} {
+		if br.IsThis(v) {
+			t.Fatalf("IsThis(%q) = true, want false", v)
+		}
 	}
 }
