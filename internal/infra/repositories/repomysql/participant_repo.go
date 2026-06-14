@@ -1,14 +1,14 @@
-package reposqlite
+package repomysql
 
 import (
 	"github.com/jictyvoo/olhojogo/internal/domain/eventcore"
 	"github.com/jictyvoo/olhojogo/internal/infra/repositories/internal/mapper"
-	"github.com/jictyvoo/olhojogo/internal/infra/repositories/reposqlite/dbgen"
+	"github.com/jictyvoo/olhojogo/internal/infra/repositories/repomysql/dbgen"
 )
 
-type ParticipantRepo struct{ *repoSQLite }
+type ParticipantRepo struct{ *repoMySQL }
 
-func NewParticipantRepo(base *repoSQLite) ParticipantRepo { return ParticipantRepo{base} }
+func NewParticipantRepo(base *repoMySQL) ParticipantRepo { return ParticipantRepo{base} }
 
 func (r ParticipantRepo) UpsertParticipant(p eventcore.Participant) error {
 	qctx, cancel := r.Ctx()
@@ -19,9 +19,9 @@ func (r ParticipantRepo) UpsertParticipant(p eventcore.Participant) error {
 		ExternalKey: p.Ext.Key,
 		Kind:        string(p.Kind),
 		Name:        p.Name,
-		Code:        mapper.OptString(p.Code),
-		CountryIso:  mapper.OptString(p.CountryISO),
-		Gender:      mapper.OptString(p.Gender),
+		Code:        mapper.NSStr(p.Code),
+		CountryIso:  mapper.NSStr(p.CountryISO),
+		Gender:      mapper.NSStr(p.Gender),
 	})
 }
 
@@ -36,7 +36,7 @@ func (r ParticipantRepo) UpsertFixtureParticipants(
 		if err := r.Queries().UpsertFixtureParticipant(qctx, dbgen.UpsertFixtureParticipantParams{
 			FixtureID:     fxBytes,
 			ParticipantID: fp.ParticipantID.Bytes(),
-			Role:          mapper.OptString(fp.Role),
+			Role:          mapper.NSStr(fp.Role),
 		}); err != nil {
 			return err
 		}
@@ -55,19 +55,15 @@ func (r ParticipantRepo) ListParticipantsByFixture(
 	}
 	out := make([]eventcore.Participant, len(rows))
 	for i, row := range rows {
-		out[i] = rowToParticipant(row)
+		out[i] = eventcore.Participant{
+			ID:         mapper.IDFromBytes(row.ID),
+			Ext:        eventcore.ExternalID{Provider: row.ProviderID, Key: row.ExternalKey},
+			Kind:       eventcore.ParticipantKind(row.Kind),
+			Name:       row.Name,
+			Code:       row.Code.String,
+			CountryISO: row.CountryIso.String,
+			Gender:     row.Gender.String,
+		}
 	}
 	return out, nil
-}
-
-func rowToParticipant(row dbgen.Participant) eventcore.Participant {
-	return eventcore.Participant{
-		ID:         mapper.IDFromBytes(row.ID),
-		Ext:        eventcore.ExternalID{Provider: row.ProviderID, Key: row.ExternalKey},
-		Kind:       eventcore.ParticipantKind(row.Kind),
-		Name:       row.Name,
-		Code:       mapper.NullStr(row.Code),
-		CountryISO: mapper.NullStr(row.CountryIso),
-		Gender:     mapper.NullStr(row.Gender),
-	}
 }

@@ -1,41 +1,27 @@
-package reposqlite
+package repomysql
 
 import (
 	"github.com/jictyvoo/olhojogo/internal/domain/eventcore"
 	"github.com/jictyvoo/olhojogo/internal/infra/repositories/internal/mapper"
-	"github.com/jictyvoo/olhojogo/internal/infra/repositories/reposqlite/dbgen"
+	"github.com/jictyvoo/olhojogo/internal/infra/repositories/repomysql/dbgen"
 )
 
-type CountryRepo struct{ *repoSQLite }
+type CountryRepo struct{ *repoMySQL }
 
-func NewCountryRepo(base *repoSQLite) CountryRepo { return CountryRepo{base} }
+func NewCountryRepo(base *repoMySQL) CountryRepo { return CountryRepo{base} }
 
 func (r CountryRepo) SeedCountry(c eventcore.Country) error {
 	qctx, cancel := r.Ctx()
 	defer cancel()
-	var codeNum, pop any
-	if c.CodeNum != 0 {
-		codeNum = int64(c.CodeNum)
-	}
-	if c.Population != 0 {
-		pop = c.Population
-	}
-	var area, gdp any
-	if c.AreaKm2 != 0 {
-		area = c.AreaKm2
-	}
-	if c.GDPUSD != 0 {
-		gdp = c.GDPUSD
-	}
 	return r.Queries().UpsertCountry(qctx, dbgen.UpsertCountryParams{
 		Iso2:       c.ISO2,
 		Iso3:       c.ISO3,
-		IocCode:    mapper.OptString(c.IOCCode),
+		IocCode:    mapper.NSStr(c.IOCCode),
 		Name:       c.Name,
-		CodeNum:    codeNum,
-		Population: pop,
-		AreaKm2:    area,
-		GdpUsd:     gdp,
+		CodeNum:    mapper.NSInt(int64(c.CodeNum)),
+		Population: mapper.NSInt(c.Population),
+		AreaKm2:    mapper.NSFloat(c.AreaKm2),
+		GdpUsd:     mapper.NSFloat(c.GDPUSD),
 	})
 }
 
@@ -62,7 +48,7 @@ func (r CountryRepo) ByISO3(iso3 string) (eventcore.Country, error) {
 func (r CountryRepo) ByIOC(ioc string) (eventcore.Country, error) {
 	qctx, cancel := r.Ctx()
 	defer cancel()
-	row, err := r.Queries().GetCountryByIOC(qctx, mapper.OptString(ioc))
+	row, err := r.Queries().GetCountryByIOC(qctx, mapper.NSStr(ioc))
 	if err != nil {
 		return eventcore.Country{}, err
 	}
@@ -70,22 +56,14 @@ func (r CountryRepo) ByIOC(ioc string) (eventcore.Country, error) {
 }
 
 func rowToCountry(row dbgen.Country) eventcore.Country {
-	codeNum := 0
-	if p := mapper.NullInt(row.CodeNum); p != nil {
-		codeNum = *p
-	}
-	pop := int64(0)
-	if p := mapper.NullInt(row.Population); p != nil {
-		pop = int64(*p)
-	}
 	return eventcore.Country{
 		ISO2:       row.Iso2,
 		ISO3:       row.Iso3,
-		IOCCode:    mapper.NullStr(row.IocCode),
+		IOCCode:    row.IocCode.String,
 		Name:       row.Name,
-		CodeNum:    codeNum,
-		Population: pop,
-		AreaKm2:    mapper.FloatOrZero(row.AreaKm2),
-		GDPUSD:     mapper.FloatOrZero(row.GdpUsd),
+		CodeNum:    int(row.CodeNum.Int64),
+		Population: row.Population.Int64,
+		AreaKm2:    row.AreaKm2.Float64,
+		GDPUSD:     row.GdpUsd.Float64,
 	}
 }

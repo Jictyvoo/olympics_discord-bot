@@ -1,30 +1,26 @@
-package reposqlite
+package repomysql
 
 import (
 	"github.com/jictyvoo/olhojogo/internal/domain/eventcore"
 	"github.com/jictyvoo/olhojogo/internal/infra/repositories/internal/mapper"
-	"github.com/jictyvoo/olhojogo/internal/infra/repositories/reposqlite/dbgen"
+	"github.com/jictyvoo/olhojogo/internal/infra/repositories/repomysql/dbgen"
 )
 
-type NotificationRepo struct{ *repoSQLite }
+type NotificationRepo struct{ *repoMySQL }
 
-func NewNotificationRepo(base *repoSQLite) NotificationRepo { return NotificationRepo{base} }
+func NewNotificationRepo(base *repoMySQL) NotificationRepo { return NotificationRepo{base} }
 
 func (r NotificationRepo) UpsertNotification(n eventcore.Notification) error {
 	qctx, cancel := r.Ctx()
 	defer cancel()
-	var sentAt any
-	if !n.SentAt.IsZero() {
-		sentAt = n.SentAt.UTC()
-	}
 	return r.Queries().UpsertNotification(qctx, dbgen.UpsertNotificationParams{
 		ID:        n.ID.Bytes(),
 		AlertID:   n.AlertID.Bytes(),
-		ChannelID: mapper.OptString(n.ChannelID),
-		MessageID: mapper.OptString(n.MessageID),
+		ChannelID: mapper.NSStr(n.ChannelID),
+		MessageID: mapper.NSStr(n.MessageID),
 		Status:    string(n.Status),
-		Checksum:  mapper.OptString(n.Checksum),
-		SentAt:    sentAt,
+		Checksum:  mapper.NSStr(n.Checksum),
+		SentAt:    mapper.NSTime(n.SentAt),
 	})
 }
 
@@ -33,7 +29,7 @@ func (r NotificationRepo) GetNotificationByChecksum(
 ) (eventcore.Notification, error) {
 	qctx, cancel := r.Ctx()
 	defer cancel()
-	row, err := r.Queries().GetNotificationByChecksum(qctx, mapper.OptString(checksum))
+	row, err := r.Queries().GetNotificationByChecksum(qctx, mapper.NSStr(checksum))
 	if err != nil {
 		return eventcore.Notification{}, err
 	}
@@ -56,10 +52,10 @@ func rowToNotification(row dbgen.Notification) eventcore.Notification {
 	return eventcore.Notification{
 		ID:        mapper.IDFromBytes(row.ID),
 		AlertID:   mapper.IDFromBytes(row.AlertID),
-		ChannelID: mapper.NullStr(row.ChannelID),
-		MessageID: mapper.NullStr(row.MessageID),
+		ChannelID: row.ChannelID.String,
+		MessageID: row.MessageID.String,
 		Status:    eventcore.ParseNotificationStatus(row.Status),
-		Checksum:  mapper.NullStr(row.Checksum),
-		SentAt:    mapper.TimeOrZero(row.SentAt),
+		Checksum:  row.Checksum.String,
+		SentAt:    row.SentAt.Time.UTC(),
 	}
 }

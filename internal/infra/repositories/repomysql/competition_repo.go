@@ -1,14 +1,14 @@
-package reposqlite
+package repomysql
 
 import (
 	"github.com/jictyvoo/olhojogo/internal/domain/eventcore"
 	"github.com/jictyvoo/olhojogo/internal/infra/repositories/internal/mapper"
-	"github.com/jictyvoo/olhojogo/internal/infra/repositories/reposqlite/dbgen"
+	"github.com/jictyvoo/olhojogo/internal/infra/repositories/repomysql/dbgen"
 )
 
-type CompetitionRepo struct{ *repoSQLite }
+type CompetitionRepo struct{ *repoMySQL }
 
-func NewCompetitionRepo(base *repoSQLite) CompetitionRepo { return CompetitionRepo{base} }
+func NewCompetitionRepo(base *repoMySQL) CompetitionRepo { return CompetitionRepo{base} }
 
 // GetCompetitionByFixture resolves the competition that owns a fixture by
 // walking fixture -> stage -> season -> competition.
@@ -24,9 +24,9 @@ func (r CompetitionRepo) GetCompetitionByFixture(
 	return eventcore.Competition{
 		ID:         mapper.IDFromBytes(row.ID),
 		Ext:        eventcore.ExternalID{Provider: row.ProviderID, Key: row.ExternalKey},
-		Code:       mapper.NullStr(row.Code),
+		Code:       row.Code.String,
 		Name:       row.Name,
-		Discipline: mapper.NullStr(row.Discipline),
+		Discipline: row.Discipline.String,
 	}, nil
 }
 
@@ -37,8 +37,8 @@ func (r CompetitionRepo) UpsertCompetition(c eventcore.Competition) error {
 		ID:          c.ID.Bytes(),
 		ProviderID:  c.Ext.Provider,
 		ExternalKey: c.Ext.Key,
-		Code:        mapper.OptString(c.Code),
+		Code:        mapper.NSStr(c.Code),
 		Name:        c.Name,
-		Discipline:  mapper.OptString(c.Discipline),
+		Discipline:  mapper.NSStr(c.Discipline),
 	})
 }

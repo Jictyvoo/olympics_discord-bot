@@ -1,4 +1,4 @@
-package reposqlite
+package repomysql
 
 import (
 	"context"
@@ -7,14 +7,14 @@ import (
 	"github.com/jictyvoo/olhojogo/internal/domain/eventcore"
 	"github.com/jictyvoo/olhojogo/internal/domain/usecases/syncer"
 	"github.com/jictyvoo/olhojogo/internal/infra/repositories/internal/repobase"
-	"github.com/jictyvoo/olhojogo/internal/infra/repositories/reposqlite/dbgen"
+	"github.com/jictyvoo/olhojogo/internal/infra/repositories/repomysql/dbgen"
 )
 
 const hoursPerDay = 24
 
-type repoSQLite = repobase.Base[*dbgen.Queries]
+type repoMySQL = repobase.Base[*dbgen.Queries]
 
-func newRepo(ctx context.Context, db *sql.DB) *repoSQLite {
+func newRepo(ctx context.Context, db *sql.DB) *repoMySQL {
 	return repobase.New[*dbgen.Queries](ctx, db, dbgen.New(db))
 }
 
@@ -24,7 +24,7 @@ type Repository struct {
 	*repobase.GenericRepository[*dbgen.Queries, syncer.Tx]
 }
 
-func NewRepository(base *repoSQLite) *Repository {
+func NewRepository(base *repoMySQL) *Repository {
 	return &Repository{
 		repobase.NewGenericRepository[*dbgen.Queries, syncer.Tx](base, newRepo, newTxAdapter),
 	}
@@ -39,7 +39,7 @@ func (r *Repository) RecordError(provider eventcore.ProviderID, scope, errMsg st
 }
 
 //nolint:ireturn // factory returns the consumer Tx port by design
-func newTxAdapter(base *repoSQLite, finish repobase.OnFinishFunc) syncer.Tx {
+func newTxAdapter(base *repoMySQL, finish repobase.OnFinishFunc) syncer.Tx {
 	return &txAdapter{
 		finish:          finish,
 		CompetitionRepo: CompetitionRepo{base},
