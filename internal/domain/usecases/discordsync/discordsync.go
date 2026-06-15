@@ -1,121 +1,130 @@
-package services
+package discordsync
 
 import (
-	"bytes"
+	"database/sql"
+	"errors"
 	"log/slog"
-	"text/template"
+	"time"
 
-	"github.com/jictyvoo/olympics_data_fetcher/internal/entities"
-	"github.com/jictyvoo/olympics_data_fetcher/internal/utils"
+	"github.com/jictyvoo/olhojogo/internal/domain/eventcore"
 )
 
-type (
-	NotifierFacade interface {
-		InitMessageChannel(channelName string) error
-		SendMessage(content string) error
-	}
+const (
+	defaultHorizonDays = 14
+	hoursPerDay        = 24
 )
 
-type OlympicEventManager struct {
-	notifier       NotifierFacade
-	msgTemplate    *template.Template
-	watchCountries []string
+// DiscordSync creates, updates, and cancels Discord scheduled events to mirror fixture state.
+type DiscordSync struct {
+	fixtures FixtureReader
+	repo     DiscordEventRepo
+	discord  ScheduledEventFacade
+	guildID  string
+	horizon  time.Duration // fixtures within this window are managed
 }
 
-func NewOlympicEventManager(
-	watchCountries []string,
-	facade NotifierFacade,
-) (OlympicEventManager, error) {
-	const tmpl = `
-# {{.Discipline}}
-**Event:** {{if .HasMedal}}:medal: {{end}}{{.EventName}}{{if .Status}} - {{.Status}}{{end}}{{if .Phase}}
-**Phase:** {{.Phase}}{{end}}
-**Gender:** {{.Gender}}
-**Start:** {{discRelativeHour .StartAt}}
-**End:** {{discRelativeHour .EndAt}}
-**Competitors:**
-{{range .Competitors}}- :{{emojiFlag .Country}}: {{.Name}}{{with $result := index $.ResultPerCompetitor .Code}}{{if $result.Mark}} #{{$result.Mark}}{{end}}{{if $result.MedalType}} ({{$result.MedalType}}){{end}}{{end}}
-{{end}}`
-
-	t, err := template.New("event").Funcs(
-		template.FuncMap{
-			"emojiFlag":        entities.CountryInfo.EmojiFlag,
-			"discRelativeHour": utils.DiscordTimestamp,
-		},
-	).Parse(tmpl)
-	if err != nil {
-		return OlympicEventManager{}, err
+func New(
+	fixtures FixtureReader,
+	repo DiscordEventRepo,
+	discord ScheduledEventFacade,
+	guildID string,
+	horizon time.Duration,
+) *DiscordSync {
+	if horizon == 0 {
+		horizon = defaultHorizonDays * hoursPerDay * time.Hour
 	}
-	return OlympicEventManager{
-		notifier:       facade,
-		watchCountries: watchCountries,
-		msgTemplate:    t,
-	}, nil
+	return &DiscordSync{
+		fixtures: fixtures,
+		repo:     repo,
+		discord:  discord,
+		guildID:  guildID,
+		horizon:  horizon,
+	}
 }
 
-func (oen OlympicEventManager) NormalizeEvent4Notification(event *entities.OlympicEvent) bool {
-	if len(oen.watchCountries) <= 0 {
-		return true
-	}
-	if utils.EqualAlfaNum(event.EventName, event.Phase) {
-		event.Phase = ""
-	}
-
-	newCompetitorsList := make([]entities.OlympicCompetitors, 0, len(event.Competitors))
-	var foundCountry bool
-competitorLoop:
-	for _, competitor := range event.Competitors {
-		for _, watch := range oen.watchCountries {
-			if competitor.Country.IsThis(watch) {
-				foundCountry = true
-				newCompetitorsList = append(newCompetitorsList, competitor)
-				continue competitorLoop
-			}
-		}
-		if _, hasResult := event.ResultPerCompetitor[competitor.Code]; hasResult && len(newCompetitorsList) < 4 {
-			newCompetitorsList = append(newCompetitorsList, competitor)
-		}
-	}
-
-	if len(event.Competitors) > 4 {
-		event.Competitors = newCompetitorsList
-	}
-
-	event.Normalize()
-	return foundCountry
-}
-
-func (oen OlympicEventManager) genContent(event entities.OlympicEvent) string {
-	// Create the needed message structure to be sent
-	var buf bytes.Buffer
-	err := oen.msgTemplate.Execute(&buf, event)
-	if err != nil {
-		slog.Error("Error executing template for Olympic event", slog.String("error", err.Error()))
-		return ""
-	}
-
-	return buf.String()
-}
-
-func (oen OlympicEventManager) OnEvent(event entities.OlympicEvent) {
-	// Check if it should notify the event
-	if !oen.NormalizeEvent4Notification(&event) {
-		return
-	}
-
-	// Create the needed message structure to be sent
-	content := oen.genContent(event)
-	if content == "" {
-		return
-	}
-	if err := oen.notifier.SendMessage(content); err != nil {
+// On satisfies services.Observer[eventcore.Fixture]: it reconciles the single
+// fixture's Discord scheduled event whenever the syncer persists it.
+func (ds *DiscordSync) On(f eventcore.Fixture) {
+	if err := ds.reconcile(f); err != nil {
 		slog.Error(
-			"Error sending message using notifier",
-			slog.String("message", content),
-			slog.String("error", err.Error()),
+			"discordsync: on-fixture",
+			slog.String("fixture", f.ID.String()),
+			slog.String("err", err.Error()),
 		)
-		return
+	}
+}
+
+// Run reconciles Discord scheduled events with stored fixtures within the horizon.
+func (ds *DiscordSync) Run() error {
+	deadline := time.Now().Add(ds.horizon)
+	fixtures, err := ds.fixtures.ListFixturesStartingBefore(deadline)
+	if err != nil {
+		return err
 	}
 
-	slog.Info("Event successfully sent to notifier", slog.Any("event", event))
+	var errs []error
+	for _, f := range fixtures {
+		if err := ds.reconcile(f); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
+}
+
+func (ds *DiscordSync) reconcile(f eventcore.Fixture) error {
+	discordEvent, err := ds.repo.GetDiscordEventByFixture(f.ID, ds.guildID)
+	notFound := errors.Is(err, sql.ErrNoRows)
+	if err != nil && !notFound {
+		return err
+	}
+
+	// Cancel if fixture is cancelled or postponed.
+	if f.Status == eventcore.FixtureCancelled || f.Status == eventcore.FixturePostponed {
+		if !notFound && discordEvent.DiscordEventID != "" {
+			if cancelErr := ds.discord.CancelScheduledEvent(
+				ds.guildID,
+				discordEvent.DiscordEventID,
+			); cancelErr != nil {
+				slog.Error("discordsync: cancel", slog.String("err", cancelErr.Error()))
+				return cancelErr
+			}
+			return ds.repo.UpdateDiscordEventStatus(
+				f.ID,
+				ds.guildID,
+				eventcore.DiscordEventCancelled,
+			)
+		}
+		return nil
+	}
+
+	input := buildEventInput(f)
+
+	if notFound || discordEvent.DiscordEventID == "" {
+		// Create new.
+		evtID, createErr := ds.discord.CreateScheduledEvent(ds.guildID, input)
+		if createErr != nil {
+			return createErr
+		}
+		return ds.repo.UpsertDiscordEvent(eventcore.DiscordEvent{
+			FixtureID:      f.ID,
+			GuildID:        ds.guildID,
+			DiscordEventID: evtID,
+			Status:         eventcore.DiscordEventScheduled,
+			LastChecksum:   f.Checksum,
+		})
+	}
+
+	// Update only if checksum changed.
+	if discordEvent.LastChecksum == f.Checksum {
+		return nil
+	}
+	if updateErr := ds.discord.UpdateScheduledEvent(
+		ds.guildID,
+		discordEvent.DiscordEventID,
+		input,
+	); updateErr != nil {
+		return updateErr
+	}
+	discordEvent.LastChecksum = f.Checksum
+	return ds.repo.UpsertDiscordEvent(discordEvent)
 }

@@ -1,166 +1,175 @@
-package services
+package discordsync
 
 import (
+	"database/sql"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 
-	"github.com/jictyvoo/olympics_data_fetcher/internal/entities"
+	"github.com/jictyvoo/olhojogo/internal/domain/eventcore"
+	"github.com/jictyvoo/olhojogo/internal/infra/discordfacade"
 )
 
-func TestOlympicEventManager_GenContent(t *testing.T) {
-	manager, err := NewOlympicEventManager([]string{}, nil)
-	if err != nil {
-		t.Fatal(err)
+func mkFixture(checksum string, status eventcore.FixtureStatus) eventcore.Fixture {
+	id := eventcore.NewID(eventcore.ProviderOlympics, "fx-"+checksum)
+	return eventcore.Fixture{
+		ID:       id,
+		Name:     "Match " + checksum,
+		StartsAt: time.Now().Add(time.Hour),
+		EndsAt:   time.Now().Add(2 * time.Hour),
+		Status:   status,
+		Checksum: checksum,
 	}
-
-	event := entities.OlympicEvent{
-		Discipline: entities.Discipline{
-			Name: "Athletics",
-			Code: "ATH",
-		},
-		EventName: "100m Final",
-		Status:    "Completed",
-		Phase:     "Final",
-		HasMedal:  true,
-		Gender:    entities.GenderMasc,
-		StartAt:   time.Date(2024, 7, 30, 18, 0, 0, 0, time.UTC),
-		EndAt:     time.Date(2024, 7, 30, 18, 10, 0, 0, time.UTC),
-		Competitors: []entities.OlympicCompetitors{
-			{Country: entities.CountryInfo{ISOCode: [2]string{"us"}}, Name: "John Doe", Code: "25"},
-			{
-				Country: entities.CountryInfo{ISOCode: [2]string{"ca"}},
-				Name:    "Alex Smith",
-				Code:    "28",
-			},
-		},
-		ResultPerCompetitor: map[string]entities.Results{
-			"25": {MedalType: entities.MedalLoser, Mark: "52.5"},
-			"28": {MedalType: entities.MedalWinner},
-		},
-	}
-
-	expectedOutput := `
-# :athletic_shoe: Athletics
-**Event:** :medal: 100m Final - Completed
-**Phase:** Final
-**Gender:** Male
-**Start:** <t:1722362400:R>
-**End:** <t:1722363000:R>
-**Competitors:**
-- :flag_us: John Doe #52.5 (loser)
-- :flag_ca: Alex Smith (winner)
-`
-
-	content := manager.genContent(event)
-	assert.Equal(t, expectedOutput, content)
 }
 
-func TestOlympicEventManager_NormalizeEvent4Notification(t *testing.T) {
-	tests := []struct {
-		name                string
-		watchCountries      []string
-		event               *entities.OlympicEvent
-		expectedResult      bool
-		expectedCompetitors []entities.OlympicCompetitors
-	}{
-		{
-			name:           "No watched countries",
-			watchCountries: []string{},
-			event: &entities.OlympicEvent{
-				Competitors: []entities.OlympicCompetitors{
-					{Code: "01", Country: entities.CountryInfo{IOCCode: "USA"}},
-				},
-				ResultPerCompetitor: map[string]entities.Results{
-					"01": {MedalType: entities.MedalGold},
-				},
-			},
-			expectedResult: true,
-			expectedCompetitors: []entities.OlympicCompetitors{
-				{Code: "01", Country: entities.CountryInfo{IOCCode: "USA"}},
-			},
-		},
-		{
-			name:           "No matching competitors",
-			watchCountries: []string{"BRA"},
-			event: &entities.OlympicEvent{
-				Competitors: []entities.OlympicCompetitors{
-					{Code: "01", Country: entities.CountryInfo{IOCCode: "USA"}},
-				},
-				ResultPerCompetitor: map[string]entities.Results{
-					"01": {MedalType: entities.MedalGold},
-				},
-			},
-			expectedResult: false,
-			expectedCompetitors: []entities.OlympicCompetitors{
-				{Code: "01", Country: entities.CountryInfo{IOCCode: "USA"}},
-			},
-		},
-		{
-			name:           "Some matching competitors",
-			watchCountries: []string{"USA"},
-			event: &entities.OlympicEvent{
-				Competitors: []entities.OlympicCompetitors{
-					{Code: "01", Country: entities.CountryInfo{IOCCode: "USA"}},
-					{Code: "02", Country: entities.CountryInfo{IOCCode: "BRA"}},
-				},
-				ResultPerCompetitor: map[string]entities.Results{
-					"01": {MedalType: entities.MedalGold},
-				},
-			},
-			expectedResult: true,
-			expectedCompetitors: []entities.OlympicCompetitors{
-				{Code: "01", Country: entities.CountryInfo{IOCCode: "USA"}},
-				{Code: "02", Country: entities.CountryInfo{IOCCode: "BRA"}},
-			},
-		},
-		{
-			name:           "Competitors with results",
-			watchCountries: []string{"BRA"},
-			event: &entities.OlympicEvent{
-				Competitors: []entities.OlympicCompetitors{
-					{Code: "01", Country: entities.CountryInfo{IOCCode: "USA"}},
-					{Code: "02", Country: entities.CountryInfo{IOCCode: "BRA"}},
-				},
-				ResultPerCompetitor: map[string]entities.Results{
-					"01": {MedalType: entities.MedalGold},
-				},
-			},
-			expectedResult: true,
-			expectedCompetitors: []entities.OlympicCompetitors{
-				{Code: "01", Country: entities.CountryInfo{IOCCode: "USA"}},
-				{Code: "02", Country: entities.CountryInfo{IOCCode: "BRA"}},
-			},
-		},
-		{
-			name:           "Competitors list more than 4",
-			watchCountries: []string{"BRA"},
-			event: &entities.OlympicEvent{
-				Competitors: []entities.OlympicCompetitors{
-					{Code: "01", Country: entities.CountryInfo{IOCCode: "BRA"}},
-					{Code: "02", Country: entities.CountryInfo{IOCCode: "POR"}},
-					{Code: "03", Country: entities.CountryInfo{IOCCode: "FRE"}},
-					{Code: "04", Country: entities.CountryInfo{IOCCode: "ITA"}},
-					{Code: "05", Country: entities.CountryInfo{IOCCode: "JPN"}},
-				},
-				ResultPerCompetitor: map[string]entities.Results{},
-			},
-			expectedResult: true,
-			expectedCompetitors: []entities.OlympicCompetitors{
-				{Code: "01", Country: entities.CountryInfo{IOCCode: "BRA"}},
-			},
-		},
-	}
+func TestDiscordSync_CreatesWhenMissing(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	f := mkFixture("c1", eventcore.FixtureScheduled)
 
-	for _, tt := range tests {
-		t.Run(
-			tt.name, func(t *testing.T) {
-				oen := OlympicEventManager{watchCountries: tt.watchCountries}
-				result := oen.NormalizeEvent4Notification(tt.event)
-				assert.Equal(t, tt.expectedResult, result)
-				assert.Equal(t, tt.expectedCompetitors, tt.event.Competitors)
-			},
-		)
+	reader := NewMockFixtureReader(ctrl)
+	reader.EXPECT().
+		ListFixturesStartingBefore(gomock.Any()).
+		Return([]eventcore.Fixture{f}, nil)
+
+	repo := NewMockDiscordEventRepo(ctrl)
+	repo.EXPECT().
+		GetDiscordEventByFixture(f.ID, gomock.Any()).
+		Return(eventcore.DiscordEvent{}, sql.ErrNoRows)
+	var upserted eventcore.DiscordEvent
+	repo.EXPECT().
+		UpsertDiscordEvent(gomock.Any()).
+		Do(func(de eventcore.DiscordEvent) { upserted = de }).
+		Return(nil)
+
+	fac := NewMockScheduledEventFacade(ctrl)
+	fac.EXPECT().
+		CreateScheduledEvent(gomock.Any(), gomock.Any()).
+		Return("discord-1", nil)
+
+	ds := New(reader, repo, fac, "guild", 0)
+	if err := ds.Run(); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if upserted.DiscordEventID != "discord-1" {
+		t.Fatalf("expected upsert with discord-1; got %+v", upserted)
+	}
+}
+
+func TestDiscordSync_UpdatesWhenChecksumChanged(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	f := mkFixture("c2", eventcore.FixtureScheduled)
+
+	reader := NewMockFixtureReader(ctrl)
+	reader.EXPECT().
+		ListFixturesStartingBefore(gomock.Any()).
+		Return([]eventcore.Fixture{f}, nil)
+
+	repo := NewMockDiscordEventRepo(ctrl)
+	repo.EXPECT().
+		GetDiscordEventByFixture(f.ID, gomock.Any()).
+		Return(eventcore.DiscordEvent{
+			FixtureID: f.ID, DiscordEventID: "evt-99", LastChecksum: "stale",
+		}, nil)
+	var upserted eventcore.DiscordEvent
+	repo.EXPECT().
+		UpsertDiscordEvent(gomock.Any()).
+		Do(func(de eventcore.DiscordEvent) { upserted = de }).
+		Return(nil)
+
+	fac := NewMockScheduledEventFacade(ctrl)
+	var updatedEventID string
+	fac.EXPECT().
+		UpdateScheduledEvent(gomock.Any(), gomock.Any(), gomock.Any()).
+		Do(func(_, eventID string, _ discordfacade.ScheduledEventInput) {
+			updatedEventID = eventID
+		}).
+		Return(nil)
+
+	ds := New(reader, repo, fac, "guild", 0)
+	if err := ds.Run(); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if updatedEventID != "evt-99" {
+		t.Fatalf("expected update on evt-99; got id=%q", updatedEventID)
+	}
+	if upserted.LastChecksum != "c2" {
+		t.Fatalf("expected upsert with new checksum; got %+v", upserted)
+	}
+}
+
+func TestDiscordSync_SkipsWhenChecksumUnchanged(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	f := mkFixture("c3", eventcore.FixtureScheduled)
+
+	reader := NewMockFixtureReader(ctrl)
+	reader.EXPECT().
+		ListFixturesStartingBefore(gomock.Any()).
+		Return([]eventcore.Fixture{f}, nil)
+
+	repo := NewMockDiscordEventRepo(ctrl)
+	repo.EXPECT().
+		GetDiscordEventByFixture(f.ID, gomock.Any()).
+		Return(eventcore.DiscordEvent{
+			FixtureID: f.ID, DiscordEventID: "evt-7", LastChecksum: "c3",
+		}, nil)
+
+	// No facade calls expected: NewMockScheduledEventFacade with no EXPECT()
+	// will fail the test if any method is invoked.
+	fac := NewMockScheduledEventFacade(ctrl)
+
+	ds := New(reader, repo, fac, "guild", 0)
+	if err := ds.Run(); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+}
+
+func TestDiscordSync_CancelsWhenFixtureCancelled(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	f := mkFixture("c4", eventcore.FixtureCancelled)
+
+	reader := NewMockFixtureReader(ctrl)
+	reader.EXPECT().
+		ListFixturesStartingBefore(gomock.Any()).
+		Return([]eventcore.Fixture{f}, nil)
+
+	repo := NewMockDiscordEventRepo(ctrl)
+	repo.EXPECT().
+		GetDiscordEventByFixture(f.ID, gomock.Any()).
+		Return(eventcore.DiscordEvent{
+			FixtureID: f.ID, DiscordEventID: "evt-cancel-me", LastChecksum: "c4",
+		}, nil)
+	var gotStatus eventcore.DiscordEventStatus
+	repo.EXPECT().
+		UpdateDiscordEventStatus(gomock.Any(), gomock.Any(), gomock.Any()).
+		Do(func(_ eventcore.CanonicalID, _ string, st eventcore.DiscordEventStatus) {
+			gotStatus = st
+		}).
+		Return(nil)
+
+	fac := NewMockScheduledEventFacade(ctrl)
+	fac.EXPECT().
+		CancelScheduledEvent(gomock.Any(), gomock.Any()).
+		Return(nil)
+
+	ds := New(reader, repo, fac, "guild", 0)
+	if err := ds.Run(); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if gotStatus != eventcore.DiscordEventCancelled {
+		t.Fatalf("expected cancelled status update; got %v", gotStatus)
+	}
+}
+
+func TestDiscordSync_DefaultHorizon(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	ds := New(
+		NewMockFixtureReader(ctrl),
+		NewMockDiscordEventRepo(ctrl),
+		NewMockScheduledEventFacade(ctrl),
+		"g", 0,
+	)
+	if ds.horizon == 0 {
+		t.Fatal("default horizon must be non-zero")
 	}
 }
