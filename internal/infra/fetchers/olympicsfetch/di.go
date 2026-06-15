@@ -1,19 +1,26 @@
-package repolympicfetch
+package olympicsfetch
 
-type WatchOnResp struct {
-	Title       string `json:"title"`
-	CountryCode string `json:"countryCode"`
-	MrhItems    []struct {
-		Url                string `json:"url"`
-		Label              string `json:"label"`
-		Title              string `json:"title"`
-		Image              string `json:"image"`
-		Target             string `json:"target"`
-		Slug               string `json:"slug"`
-		EmbeddedWidgetHtml []any  `json:"embeddedWidgetHtml"`
-		Tags               []struct {
-			Slug string `json:"slug"`
-		} `json:"tags"`
-	} `json:"mrhItems"`
-	Errors []any `json:"errors"`
+import (
+	"github.com/wrapped-owls/goremy-di/remy"
+
+	"github.com/jictyvoo/olhojogo/internal/domain/eventcore"
+	"github.com/jictyvoo/olhojogo/internal/domain/provider"
+	"github.com/jictyvoo/olhojogo/internal/infra/cachestore"
+	"github.com/jictyvoo/olhojogo/internal/infra/httpdatasource"
+)
+
+func Register(inj remy.Injector, baseURL, lang string) {
+	remy.RegisterConstructorArgs2(
+		inj,
+		remy.Factory[Provider],
+		func(client httpdatasource.Client, cache cachestore.Cache) Provider {
+			return New(client, cache, baseURL, lang)
+		},
+	)
+	remy.RegisterConstructorArgs1(
+		inj,
+		remy.Factory[provider.Strategy],
+		func(p Provider) provider.Strategy { return p },
+		eventcore.ProviderOlympics,
+	)
 }

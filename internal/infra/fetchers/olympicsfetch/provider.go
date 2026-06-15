@@ -1,112 +1,98 @@
-package repolympicfetch
+package olympicsfetch
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"time"
 
-	"github.com/jictyvoo/olympics_data_fetcher/internal/domain/usecases"
-	"github.com/jictyvoo/olympics_data_fetcher/internal/entities"
-	"github.com/jictyvoo/olympics_data_fetcher/internal/infra/datasources/dsrest"
+	"github.com/jictyvoo/olhojogo/internal/domain/eventcore"
+	"github.com/jictyvoo/olhojogo/internal/infra/cachestore"
+	"github.com/jictyvoo/olhojogo/internal/infra/httpdatasource"
 )
 
-type OlympicsFetcherImpl struct {
-	ds   dsrest.RESTDataSource
-	lang entities.Language
+const defaultBaseURL = "https://sph-s-api.olympicsfetch.com"
+
+type Provider struct {
+	client  httpdatasource.Client
+	cache   cachestore.Cache
+	baseURL string
+	lang    string
 }
 
-func NewOlympicsFetcher(
-	apiLocale entities.Language,
-	ds dsrest.RESTDataSource,
-) usecases.OlympicsFetcher {
-	return OlympicsFetcherImpl{lang: apiLocale, ds: ds}
+func New(client httpdatasource.Client, cache cachestore.Cache, baseURL, lang string) Provider {
+	if baseURL == "" {
+		baseURL = defaultBaseURL
+	}
+	if lang == "" {
+		lang = "ENG"
+	}
+	return Provider{client: client, cache: cache, baseURL: baseURL, lang: lang}
 }
 
-func (repo OlympicsFetcherImpl) FetchDataFromDay(day time.Time) ([]entities.OlympicEvent, error) {
-	const apiURL = "https://sph-s-api.olympics.com/summer/schedules/api/%s/schedule/day/%s"
-	url := fmt.Sprintf(apiURL, repo.lang.Code, day.Format(time.DateOnly))
+func (p Provider) Code() eventcore.ProviderID { return eventcore.ProviderOlympics }
+func (p Provider) DisplayName() string        { return "Olympics" }
 
-	resp, err := repo.ds.Get(url)
+func (p Provider) SyncFixturesByDate(
+	ctx context.Context,
+	day time.Time,
+) (eventcore.SyncDelta, error) {
+	url := scheduleByDayURL(p.baseURL, p.lang, day)
+	body, err := p.fetch(ctx, url)
 	if err != nil {
-		return nil, err
+		return eventcore.SyncDelta{}, fmt.Errorf("olympics: fetch schedule: %w", err)
 	}
 
-	decoder := json.NewDecoder(resp.Body)
-	var jsonResp OlympicsAPIResponse
-	err = decoder.Decode(&jsonResp)
-
-	return repo.parseAPIResp(jsonResp), err
-}
-
-func (repo OlympicsFetcherImpl) FetchWatchOn() ([]string, error) {
-	const apiURL = "https://sph-i-api.olympics.com/summer/info/api/%s/mrh"
-	resp, err := repo.ds.Get(fmt.Sprintf(apiURL, repo.lang.Code))
-	if err != nil {
-		return nil, err
+	var resp apiScheduleResponse
+	if err = json.Unmarshal(body, &resp); err != nil {
+		return eventcore.SyncDelta{}, fmt.Errorf("olympics: decode schedule: %w", err)
 	}
 
-	decoder := json.NewDecoder(resp.Body)
-	var jsonResp WatchOnResp
-	err = decoder.Decode(&jsonResp)
+	mapped := mapSchedule(resp)
+	delta := eventcore.SyncDelta{
+		Competitions: mapped.competitions,
+		Seasons:      mapped.seasons,
+		Stages:       mapped.stages,
+		Groups:       mapped.groups,
+		Participants: mapped.participants,
+		Fixtures:     mapped.fixtures,
+		Results:      mapped.results,
+	}
+	return delta, nil
+}
 
-	urls := make([]string, 0, len(jsonResp.MrhItems))
-	for _, item := range jsonResp.MrhItems {
-		if item.Url != "" {
-			urls = append(urls, item.Url)
+func (p Provider) SyncFixtureResults(
+	_ context.Context,
+	_ eventcore.Fixture,
+) (eventcore.SyncDelta, error) {
+	return eventcore.SyncDelta{}, eventcore.ErrNotImplemented
+}
+
+func (p Provider) fetch(ctx context.Context, url string) ([]byte, error) {
+	cacheKey := "olympics_" + url
+	if p.cache != nil {
+		if data, ok, err := p.cache.Read(ctx, cacheKey); err == nil && ok {
+			return data, nil
 		}
 	}
 
-	return urls, nil
-}
-
-func (repo OlympicsFetcherImpl) FetchDisciplines() ([]entities.Discipline, error) {
-	const apiURL = "https://sph-i-api.olympics.com/summer/info/api/%s/disciplines"
-	resp, err := repo.ds.Get(fmt.Sprintf(apiURL, repo.lang.Code))
+	resp, err := p.client.Do(ctx, httpdatasource.Request{
+		Method: http.MethodGet,
+		URL:    url,
+		Headers: map[string]string{
+			"Accept": "application/json",
+		},
+	})
 	if err != nil {
 		return nil, err
 	}
-
-	decoder := json.NewDecoder(resp.Body)
-	var jsonResp []DisciplineResp
-	err = decoder.Decode(&jsonResp)
-
-	resultDisciplines := make([]entities.Discipline, 0, len(jsonResp))
-	for _, item := range jsonResp {
-		discipline := entities.Discipline{
-			Code:         item.Code,
-			Name:         item.Description,
-			Description:  item.Description,
-			IsSport:      item.IsSport,
-			IsParalympic: item.IsParalympic,
-		}
-		resultDisciplines = append(resultDisciplines, discipline)
+	if resp.StatusCode != 0 && resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("olympics: HTTP %d for %s", resp.StatusCode, url)
 	}
 
-	return resultDisciplines, nil
-}
-
-func (repo OlympicsFetcherImpl) FetchCompetitionDays() ([]time.Time, error) {
-	const apiURL = "https://sph-s-api.olympics.com/summer/schedules/api/%s/competitiondays"
-	resp, err := repo.ds.Get(fmt.Sprintf(apiURL, repo.lang.Code))
-	if err != nil {
-		return nil, err
+	if p.cache != nil {
+		_ = p.cache.Write(ctx, cacheKey, resp.Body, 0)
 	}
-
-	decoder := json.NewDecoder(resp.Body)
-	var jsonResp struct {
-		Days []struct {
-			Id   string `json:"id"`
-			Name string `json:"name"`
-		} `json:"days"`
-	}
-	err = decoder.Decode(&jsonResp)
-
-	days := make([]time.Time, 0, len(jsonResp.Days))
-	for _, item := range jsonResp.Days {
-		if parsed, parsErr := time.Parse(time.DateOnly, item.Id); parsErr == nil {
-			days = append(days, parsed)
-		}
-	}
-
-	return days, nil
+	return resp.Body, nil
 }

@@ -1,10 +1,15 @@
-package repolympicfetch
+package olympicsfetch
 
-type DisciplineResp struct {
-	Code         string `json:"code"`
-	Slug         string `json:"slug"`
-	IsParalympic bool   `json:"isParalympic"`
-	Description  string `json:"description"`
-	IsSport      bool   `json:"isSport"`
-	Order        string `json:"order"`
+import (
+	"fmt"
+	"time"
+)
+
+func scheduleByDayURL(baseURL, lang string, day time.Time) string {
+	return fmt.Sprintf(
+		"%s/summer/schedules/api/%s/schedule/day/%s",
+		baseURL,
+		lang,
+		day.Format(time.DateOnly),
+	)
 }
