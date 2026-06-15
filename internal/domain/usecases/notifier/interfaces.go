@@ -1,237 +1,52 @@
-package services
+package notifier
+
+//go:generate go tool -modfile=../../../../tools/go.mod mockgen -source=interfaces.go -destination=interfaces_mock_test.go -package=notifier
+//go:generate go tool -modfile=../../../../tools/go.mod mockgen -source=render/render.go -destination=render_mock_test.go -package=notifier
 
 import (
-	"errors"
-	"log/slog"
-	"sync"
 	"time"
 
-	"github.com/jictyvoo/olympics_data_fetcher/internal/domain/usecases"
-	"github.com/jictyvoo/olympics_data_fetcher/internal/entities"
-	"github.com/jictyvoo/olympics_data_fetcher/internal/utils"
+	"github.com/jictyvoo/olhojogo/internal/domain/eventcore"
 )
 
-type (
-	EventLoader interface {
-		LoadDayEvents(now time.Time) ([]entities.OlympicEvent, error)
-		LoadEvent(id entities.Identifier) (entities.OlympicEvent, error)
-		// LoadCompetitorsFromEvent(event entities.OlympicEvent) ([]entities.OlympicCompetitors, error)
-	}
-
-	EventNotifierRepository interface {
-		EventLoader
-		usecases.CanNotifyRepository
-	}
-)
-
-type (
-	CancelChannel    chan struct{}
-	notifierUseCases struct {
-		usecases.CanNotifyUseCase
-		usecases.FetcherCacheUseCase
-	}
-	EventNotifier struct {
-		cancelChan      CancelChannel
-		checkInterval   time.Duration
-		olympicsEndDate time.Time
-		useCases        notifierUseCases
-		repo            EventNotifierRepository
-		mutex           sync.Mutex
-		cronState
-	}
-)
-
-func NewEventNotifier(
-	cancelChan CancelChannel, cacheDuration time.Duration,
-	repo EventNotifierRepository,
-	fetcherUseCase usecases.FetcherCacheUseCase, canNotifyUseCase usecases.CanNotifyUseCase,
-) (en *EventNotifier, err error) {
-	en = &EventNotifier{
-		cancelChan:    cancelChan,
-		checkInterval: cacheDuration,
-		repo:          repo,
-		useCases: notifierUseCases{
-			CanNotifyUseCase:    canNotifyUseCase,
-			FetcherCacheUseCase: fetcherUseCase,
-		},
-		olympicsEndDate: time.Date(2024, time.August, 12, 0, 0, 0, 0, time.UTC),
-	}
-
-	return
+// FixtureReader lists fixtures eligible for notification evaluation.
+type FixtureReader interface {
+	ListFixturesStartingBefore(before time.Time) ([]eventcore.Fixture, error)
 }
 
-func (en *EventNotifier) MainLoop() error {
-	go en.fetcherThread()
-
-	ticker := time.NewTicker(en.checkInterval >> 1)
-	defer ticker.Stop()
-
-	// Do a first check before running the timer
-	if err := en.updateDisciplines(); err != nil {
-		return err
-	}
-	if err := en.checkUpdateJobs(); err != nil {
-		return err
-	}
-
-	for {
-		select {
-		case _, _ = <-en.cancelChan:
-			return nil
-		case _, _ = <-ticker.C:
-			if err := en.checkUpdateJobs(); err != nil {
-				return err
-			}
-		}
-	}
+// NotificationRepo persists and queries notification records.
+type NotificationRepo interface {
+	GetNotificationByChecksum(checksum string) (eventcore.Notification, error)
+	UpsertNotification(n eventcore.Notification) error
+	UpdateNotificationStatus(
+		id eventcore.CanonicalID,
+		status eventcore.NotificationStatus,
+	) error
 }
 
-func (en *EventNotifier) updateDisciplines() error {
-	en.mutex.Lock()
-	defer en.mutex.Unlock()
-
-	if _, err := en.useCases.FetchDisciplines(); err != nil {
-		return err
-	}
-	return nil
+// Dispatcher sends a notification message to a channel.
+type Dispatcher interface {
+	Send(channelID, content string) (messageID string, err error)
 }
 
-func (en *EventNotifier) fetchRemainingDays(
-	from time.Time, all bool,
-) (todayEndAt time.Time, tomorrowStartAt time.Time) {
-	en.mutex.Lock() // Prevent sqlite multi access
-	defer en.mutex.Unlock()
-
-	from = from.In(time.UTC)
-	startDate := time.Date(from.Year(), from.Month(), from.Day(), 0, 0, 0, 0, time.UTC)
-	endDate := startDate.Add(48 * time.Hour)
-	if all || endDate.After(en.olympicsEndDate) {
-		endDate = en.olympicsEndDate
-	}
-
-	fetchedEvents := make([][]entities.OlympicEvent, 0, 2)
-	for date := startDate; date.Before(endDate); date = date.Add(24 * time.Hour) {
-		slog.Info("Start to fetch and save data for event", slog.Time("date", date))
-		lastFetchedEvents, err := en.useCases.FetcherCacheUseCase.FetchDay(date)
-		if err != nil {
-			slog.Error("Error fetching data from day", slog.String("error", err.Error()))
-			continue
-		}
-		fetchedEvents = append(fetchedEvents, lastFetchedEvents)
-	}
-
-	if len(fetchedEvents) <= 0 {
-		return
-	}
-
-	first := fetchedEvents[0]
-	last := fetchedEvents[len(fetchedEvents)-1]
-	for _, event := range first {
-		if event.EndAt.After(todayEndAt) {
-			todayEndAt = event.EndAt
-		}
-	}
-
-	tomorrowStartAt = endDate.Add(360 * 24 * time.Hour)
-	for _, event := range last {
-		if event.StartAt.Before(tomorrowStartAt) {
-			tomorrowStartAt = event.StartAt
-		}
-	}
-
-	utils.EnsureTime(&tomorrowStartAt, 24*time.Hour)
-	return
+// MentionResolver resolves the user IDs to @mention for a fixture's facts.
+type MentionResolver interface {
+	MentionsFor(
+		guildID string, countryCodes []string, disciplineCode string,
+	) ([]string, error)
 }
 
-func (en *EventNotifier) fetcherThread() {
-	// Run one time since beginning
-	en.fetchRemainingDays(time.Date(2024, time.July, 24, 0, 0, 0, 0, time.UTC), true)
-
-	var restoreInterval bool
-	ticker := time.NewTicker(en.checkInterval)
-	for {
-		select {
-		case _, _ = <-en.cancelChan:
-			ticker.Stop()
-			return
-		case <-ticker.C:
-			if restoreInterval {
-				ticker.Reset(en.checkInterval)
-				restoreInterval = false
-			}
-			todayEndAt, tomorrowStartAt := en.fetchRemainingDays(time.Now(), false)
-			if now := time.Now(); now.After(todayEndAt.Add(3 * time.Hour >> 1)) {
-				slog.Info(
-					"Start to sleeping until next day event",
-					slog.Time("wakeAt", tomorrowStartAt),
-				)
-				ticker.Reset(tomorrowStartAt.Add(-time.Hour >> 1).Sub(now))
-				restoreInterval = true
-			}
-		}
-	}
+// ResultReader loads the results recorded for a fixture.
+type ResultReader interface {
+	ListResultsByFixture(fixtureID eventcore.CanonicalID) ([]eventcore.Result, error)
 }
 
-func (en *EventNotifier) taskExecution(event entities.OlympicEvent, evtChecksum string) {
-	// Use cron state to trigger observers
-	notifyStatus := entities.NotificationStatusSent
-	if !en.cronState.taskExecution(event) {
-		notifyStatus = entities.NotificationStatusFailed
-	} else {
-		slog.Info(
-			"Job for notification sent",
-			slog.String("eventChecksum", evtChecksum),
-			slog.Time("startTime", event.StartAt),
-		)
-	}
-
-	// Update status on database
-	newNotification := entities.Notification{
-		EventID:       event.ID,
-		Status:        notifyStatus,
-		EventChecksum: evtChecksum,
-		NotifiedAt:    time.Now(),
-	}
-	if err := en.repo.RegisterNotification(newNotification); err != nil {
-		slog.Error(
-			"Error registering notification",
-			slog.String("error", err.Error()),
-		)
-	}
+// CompetitionReader resolves the competition that owns a fixture.
+type CompetitionReader interface {
+	GetCompetitionByFixture(fixtureID eventcore.CanonicalID) (eventcore.Competition, error)
 }
 
-func (en *EventNotifier) checkUpdateJobs() error {
-	en.mutex.Lock() // Prevent sqlite multi access
-	defer en.mutex.Unlock()
-
-	// Fetch all events from the day
-	dayEvents, err := en.repo.LoadDayEvents(
-		time.Now().Add((-30 * time.Minute) - en.useCases.AllowedTimeDiff()),
-	)
-	if err != nil {
-		slog.Error("Error loading day events", slog.String("error", err.Error()))
-		return err
-	}
-
-	errList := make([]error, 0, len(dayEvents))
-	for _, event := range dayEvents {
-		// event.Competitors, err = en.repo.LoadCompetitorsFromEvent(event)
-
-		(*entities.OlympicEvent).Normalize(&event)
-		eventKey, checkErr := en.useCases.ShouldNotify(event)
-		if checkErr != nil || eventKey == "" {
-			errList = append(errList, checkErr)
-			continue
-		}
-
-		// Check again for the 20min notification
-		startDiff := utils.AbsoluteNum(event.StartAt.Sub(time.Now()))
-		if startDiff <= 20*time.Minute || event.Status == entities.StatusFinished ||
-			len(event.ResultPerCompetitor) > 0 {
-			en.taskExecution(event, eventKey)
-		}
-		// en.taskExecution(event)
-	}
-
-	return errors.Join(errList...)
+// ParticipantReader loads the participants taking part in a fixture.
+type ParticipantReader interface {
+	ListParticipantsByFixture(fixtureID eventcore.CanonicalID) ([]eventcore.Participant, error)
 }

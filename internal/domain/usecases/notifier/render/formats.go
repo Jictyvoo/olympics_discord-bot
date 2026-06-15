@@ -1,14 +1,17 @@
-package utils
+package render
 
 import (
 	"fmt"
 	"time"
 )
 
-const gymnasticsIcon = ":person_doing_cartwheel:"
+const (
+	gymnasticsIcon = ":person_doing_cartwheel:"
+	athleticsIcon  = ":athletic_shoe:"
+)
 
 var disciplineIconPerCode = map[string]string{
-	"ATH": ":athletic_shoe:",
+	"ATH": athleticsIcon,
 	"BDM": ":badminton:",
 	"BKB": ":basketball:",
 	"BK3": ":basketball:",
@@ -55,10 +58,13 @@ var disciplineIconPerCode = map[string]string{
 	"VBV": ":volleyball: :beach:",
 }
 
+// DisciplineIcon returns the Discord emoji shortcode for an Olympics discipline
+// code, or an empty string when the code is unknown.
 func DisciplineIcon(code string) string {
 	return disciplineIconPerCode[code]
 }
 
+// DiscordTimestamp renders a time as a Discord relative-timestamp markdown token.
 func DiscordTimestamp(timestamp time.Time) string {
 	return fmt.Sprintf("<t:%d:R>", timestamp.Unix())
 }
