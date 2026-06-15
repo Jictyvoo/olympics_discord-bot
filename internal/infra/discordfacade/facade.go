@@ -1,61 +1,70 @@
-package discfac
+package discordfacade
 
 import (
+	"context"
+	"fmt"
 	"strings"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 )
 
-type DiscordFacadeImpl struct {
-	guildID           string
-	availableChannels []*discordgo.Channel
-	mainChannel       *discordgo.Channel
-	session           *discordgo.Session
+// ScheduledEventInput carries the data needed to create or update a Discord scheduled event.
+type ScheduledEventInput struct {
+	Name        string
+	Description string
+	StartsAt    time.Time
+	EndsAt      time.Time
+	ChannelID   string
+	Location    string
 }
 
-func NewDiscordFacadeImpl(guildID string, session *discordgo.Session) *DiscordFacadeImpl {
-	return &DiscordFacadeImpl{guildID: guildID, session: session}
+// Client wraps bwmarrin/discordgo for the operations we actually use.
+// Callers declare their own narrower interfaces over these methods.
+type Client struct {
+	session *discordgo.Session
 }
 
-func (fac *DiscordFacadeImpl) checkGuildChannels(channelName string) error {
-	channels, err := fac.session.GuildChannels(fac.guildID)
+func New(session *discordgo.Session) *Client {
+	return &Client{session: session}
+}
+
+func (c *Client) ResolveChannel(_ context.Context, guildID, channelName string) (string, error) {
+	channels, err := c.session.GuildChannels(guildID)
 	if err != nil {
-		return err
+		return "", fmt.Errorf("discordfacade: list channels: %w", err)
 	}
-
-	fac.availableChannels = append(fac.availableChannels, channels...)
-	for _, channel := range channels {
-		if strings.EqualFold(channel.Name, channelName) {
-			fac.mainChannel = channel
-			return nil
+	for _, ch := range channels {
+		if strings.EqualFold(ch.Name, channelName) {
+			return ch.ID, nil
 		}
 	}
-	return nil
-}
-
-func (fac *DiscordFacadeImpl) InitMessageChannel(channelName string) error {
-	if fac.mainChannel != nil {
-		return nil
-	}
-
-	// Check firstly if the guild already has the requested channel
-	if err := fac.checkGuildChannels(channelName); err != nil || fac.mainChannel != nil {
-		return err
-	}
-
-	newChannel, err := fac.session.GuildChannelCreate(
-		fac.guildID, channelName,
-		discordgo.ChannelTypeGuildText,
-	)
+	ch, err := c.session.GuildChannelCreate(guildID, channelName, discordgo.ChannelTypeGuildText)
 	if err != nil {
-		return err
+		return "", fmt.Errorf("discordfacade: create channel: %w", err)
 	}
-	fac.mainChannel = newChannel
-
-	return nil
+	return ch.ID, nil
 }
 
-func (fac *DiscordFacadeImpl) SendMessage(content string) (err error) {
-	_, err = fac.session.ChannelMessageSend(fac.mainChannel.ID, content)
-	return err
+func (c *Client) Send(channelID, content string) (string, error) {
+	msg, err := c.session.ChannelMessageSend(channelID, content)
+	if err != nil {
+		return "", fmt.Errorf("discordfacade: send message: %w", err)
+	}
+	return msg.ID, nil
+}
+
+// InstallRouter wires the router's dispatcher into the session and registers its
+// guild-scoped application command, keeping all discordgo calls in this package.
+func (c *Client) InstallRouter(r *Router, guildID string) error {
+	c.session.AddHandler(r.Handle)
+	appID := c.session.State.User.ID
+	if _, err := c.session.ApplicationCommandCreate(
+		appID,
+		guildID,
+		r.ApplicationCommand(),
+	); err != nil {
+		return fmt.Errorf("discordfacade: register commands: %w", err)
+	}
+	return nil
 }
