@@ -16,16 +16,13 @@ import (
 	"github.com/jictyvoo/olhojogo/internal/infra/httpdatasource"
 )
 
-// DoInjections wires the full application into the DI container.
-// This is the only place that switches on conf.Database.Driver and conf.Providers[].Code.
+// DoInjections is the only place that switches on conf.Database.Driver and
+// conf.Providers[].Code.
 func DoInjections(inj remy.Injector, conf appconfig.Config, db *sql.DB) {
 	remy.RegisterInstance(inj, conf)
-	remy.RegisterInstance(inj, db)
 
-	// Fallback context for startup-time resolutions that have no per-op ctx
-	// (observers, serve.go, provider/di.go). remy.GetWithContext overrides this
-	// per call via its sub-injector. Registered under the context.Context
-	// interface type so factories requesting a context.Context arg resolve it.
+	// Fallback context for startup-time resolutions with no per-op ctx;
+	// remy.GetWithContext overrides it per call.
 	remy.RegisterInstance[context.Context](inj, context.Background())
 
 	httpdatasource.Register(inj)
@@ -35,8 +32,7 @@ func DoInjections(inj remy.Injector, conf appconfig.Config, db *sql.DB) {
 	registerProviders(inj, conf)
 	subscriptions.Register(inj)
 
-	// Long-lived subject the syncer emits persisted fixtures on; observers
-	// (notifier, discordsync) subscribe in WireObservers.
+	// Subject the syncer emits fixtures on; observers subscribe in WireObservers.
 	remy.RegisterInstance(inj, services.NewSubject[eventcore.Fixture]())
 
 	syncer.Register(inj, conf.Runtime.SyncInterval)
