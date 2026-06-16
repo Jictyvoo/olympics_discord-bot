@@ -63,6 +63,12 @@ func TestMapMatches_DrawNoResultsUntilFinished(t *testing.T) {
 	if len(mapped.stages) != 1 || len(mapped.stageKeys) != 1 {
 		t.Fatalf("expected 1 deduped stage; got %d / %v", len(mapped.stages), mapped.stageKeys)
 	}
+	// The feed has no kickoff end; fixtures end 105 min after the start.
+	for _, f := range mapped.fixtures {
+		if want := f.StartsAt.Add(footballMatchDuration); !f.EndsAt.Equal(want) {
+			t.Errorf("fixture %q EndsAt = %s; want %s", f.Ext.Key, f.EndsAt, want)
+		}
+	}
 }
 
 func TestMapMatches_SkipsPlaceholderFixtures(t *testing.T) {

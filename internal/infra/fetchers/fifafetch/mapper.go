@@ -13,6 +13,10 @@ const (
 	statusLive      = 3
 )
 
+// footballMatchDuration covers 90 minutes of play plus a 15-minute halftime; the
+// feed carries no kickoff end, so fixtures derive their end from the start.
+const footballMatchDuration = 105 * time.Minute
+
 // mappedMatches is the relational chain produced from a matches response,
 // deduped by external key.
 type mappedMatches struct {
@@ -70,15 +74,15 @@ func mapMatches(resp apiMatchesResponse, lang string, season seasonMeta) mappedM
 
 		startsAt := m.Date.UTC()
 		f := eventcore.Fixture{
-			ID:       eventcore.NewID(eventcore.ProviderFIFA, m.IdMatch),
-			Ext:      eventcore.ExternalID{Provider: eventcore.ProviderFIFA, Key: m.IdMatch},
-			StageID:  stageID,
-			GroupID:  groupID,
-			VenueID:  venueID,
-			Name:     localized(m.Home.TeamName, lang) + " vs " + localized(m.Away.TeamName, lang),
-			StartsAt: startsAt,
-			// The feed has no kickoff end; mirror the start for the not-null column.
-			EndsAt:       startsAt,
+			ID:      eventcore.NewID(eventcore.ProviderFIFA, m.IdMatch),
+			Ext:     eventcore.ExternalID{Provider: eventcore.ProviderFIFA, Key: m.IdMatch},
+			StageID: stageID,
+			GroupID: groupID,
+			VenueID: venueID,
+			Name: localized(m.Home.TeamName, lang) + " vs " +
+				localized(m.Away.TeamName, lang),
+			StartsAt:     startsAt,
+			EndsAt:       startsAt.Add(footballMatchDuration),
 			Status:       mapStatus(m.MatchStatus),
 			Participants: fixParts,
 		}
