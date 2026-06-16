@@ -15,7 +15,7 @@ type stubCountries struct{ list []eventcore.Country }
 func (s stubCountries) ListCountries() ([]eventcore.Country, error) { return s.list, nil }
 
 var testCountries = stubCountries{list: []eventcore.Country{
-	{Name: "Brazil", IOCCode: "BRA"},
+	{Name: "Brazil", IOCCode: codeBRA},
 	{Name: "South Korea", IOCCode: "KOR", ISO2: "KR"},
 }}
 
@@ -153,6 +153,26 @@ func TestService_HandleCommand_UnknownAction(t *testing.T) {
 	_, err := newService(repo).HandleCommand("frobnicate", "g1", "u1", "", "")
 	if err == nil {
 		t.Fatal("expected error for unknown action")
+	}
+}
+
+func TestService_HandleCommand_Remove_AllowsUnknownCountry(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	repo := NewMockRepository(ctrl)
+
+	var got eventcore.Subscription
+	repo.EXPECT().
+		RemoveSubscription(gomock.Any()).
+		Do(func(s eventcore.Subscription) { got = s }).
+		Return(nil)
+
+	// A stale "Brasil" row (not in the catalog) must still be removable as-typed.
+	_, err := newService(repo).HandleCommand("remove", "g1", "u1", "country", "Brasil")
+	if err != nil {
+		t.Fatalf("HandleCommand: %v", err)
+	}
+	if got.Value != "Brasil" {
+		t.Fatalf("remove should keep the typed value; got %q", got.Value)
 	}
 }
 

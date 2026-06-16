@@ -8,8 +8,7 @@ import (
 	"github.com/jictyvoo/olhojogo/internal/domain/eventcore"
 )
 
-// HandleCommand executes a subscription slash command and returns a
-// human-readable, ephemeral reply.
+// HandleCommand runs a subscription slash command and returns the ephemeral reply.
 func (s Service) HandleCommand(
 	action, guildID, userID, kind, value string,
 ) (string, error) {
@@ -27,7 +26,6 @@ func (s Service) HandleCommand(
 	}
 }
 
-// handleCountries lists the country codes available to subscribe to.
 func (s Service) handleCountries() (string, error) {
 	if s.countries == nil {
 		return "The country list is unavailable.", nil
@@ -48,7 +46,8 @@ func (s Service) handleCountries() (string, error) {
 }
 
 func (s Service) handleAdd(guildID, userID, kind, value string) (string, error) {
-	sub, err := s.buildSubscription(guildID, userID, kind, value)
+	// Adding requires a real country so we never store something unmatchable.
+	sub, err := s.buildSubscription(guildID, userID, kind, value, true)
 	if err != nil {
 		return "", err
 	}
@@ -59,7 +58,9 @@ func (s Service) handleAdd(guildID, userID, kind, value string) (string, error) 
 }
 
 func (s Service) handleRemove(guildID, userID, kind, value string) (string, error) {
-	sub, err := s.buildSubscription(guildID, userID, kind, value)
+	// Removing is lenient: it must clear a stored value even if that country is
+	// no longer (or was never) in the catalog.
+	sub, err := s.buildSubscription(guildID, userID, kind, value, false)
 	if err != nil {
 		return "", err
 	}
@@ -85,11 +86,11 @@ func (s Service) handleList(guildID, userID string) (string, error) {
 	return strings.TrimRight(b.String(), "\n"), nil
 }
 
-// buildSubscription validates the kind/value and canonicalizes the value: a
-// country is resolved to its code (rejecting unknown ones), a discipline is
-// upper-cased.
+// buildSubscription validates and canonicalizes the value (country to code,
+// discipline upper-cased). With strictCountry an unrecognized country is
+// rejected; otherwise the typed value is kept so a stale row can still be removed.
 func (s Service) buildSubscription(
-	guildID, userID, kind, value string,
+	guildID, userID, kind, value string, strictCountry bool,
 ) (eventcore.Subscription, error) {
 	k := eventcore.SubscriptionKind(kind)
 	if !k.Valid() {
@@ -102,13 +103,13 @@ func (s Service) buildSubscription(
 
 	switch k {
 	case eventcore.SubscribeCountry:
-		country, ok := s.resolveCountry(value)
-		if !ok {
+		if country, ok := s.resolveCountry(value); ok {
+			value = countryCode(country)
+		} else if strictCountry {
 			return eventcore.Subscription{}, fmt.Errorf(
 				"%q is not a recognized country; use its name or 3-letter code (e.g. BRA)", value,
 			)
 		}
-		value = countryCode(country)
 	case eventcore.SubscribeDiscipline:
 		value = strings.ToUpper(value)
 	}
