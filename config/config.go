@@ -44,6 +44,8 @@ type ProviderCfg struct {
 	Enabled          bool                 `toml:"enabled"`
 	BaseURL          string               `toml:"base_url"`
 	Language         string               `toml:"language"`
+	CompetitionID    string               `toml:"competition_id"`
+	SeasonID         string               `toml:"season_id"`
 	WatchedCountries []string             `toml:"watched_countries"`
 	DiscordChannel   string               `toml:"discord_channel"`
 }
