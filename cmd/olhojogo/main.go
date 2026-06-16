@@ -26,11 +26,18 @@ func main() {
 			slog.Error("migrate failed", slog.String("err", err.Error()))
 			os.Exit(1)
 		}
+	case "backfill":
+		if err := backfill(opts); err != nil {
+			slog.Error("backfill failed", slog.String("err", err.Error()))
+			os.Exit(1)
+		}
 	case "version":
 		printVersion()
 	default:
 		slog.Error("unknown subcommand", slog.String("cmd", opts.Subcommand))
-		slog.Info("usage: olhojogo [serve|migrate|version] [-config path]")
+		slog.Info(
+			"usage: olhojogo [serve|migrate|backfill|version] [-config path] [-from YYYY-MM-DD] [-to YYYY-MM-DD]",
+		)
 		os.Exit(exitUsage)
 	}
 }

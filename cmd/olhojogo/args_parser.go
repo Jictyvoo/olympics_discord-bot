@@ -5,6 +5,8 @@ import "flag"
 type cliOptions struct {
 	Subcommand string
 	ConfigPath string
+	From       string
+	To         string
 }
 
 func parseArgs(args []string) cliOptions {
@@ -21,6 +23,8 @@ func parseArgs(args []string) cliOptions {
 		"",
 		"Path to config file (default: search standard locations)",
 	)
+	fs.StringVar(&opts.From, "from", "", "backfill start day, YYYY-MM-DD")
+	fs.StringVar(&opts.To, "to", "", "backfill end day, YYYY-MM-DD (default: today UTC)")
 	_ = fs.Parse(args)
 	return opts
 }
