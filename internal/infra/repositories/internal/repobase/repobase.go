@@ -9,20 +9,18 @@ import (
 
 const defaultQueryTimeoutSeconds = 30
 
-// Queries is the sqlc-generated query set, able to rebind itself to a tx. Each
-// dialect's *dbgen.Queries satisfies it with Q set to its own pointer type.
+// Queries is the sqlc query set, rebindable to a tx. Each dialect's
+// *dbgen.Queries satisfies it with Q set to its own pointer type.
 type Queries[Q any] interface {
-	WithTx(*sql.Tx) Q
+	WithTx(tx *sql.Tx) Q
 }
 
 // OnFinishFunc commits (true) or rolls back (false) a transaction.
 type OnFinishFunc func(commit bool) error
 
-// Base is the shared repository base embedded (by pointer) into every concrete
-// repo. It owns the db handle and the sqlc Queries. BeginTx swaps queries to a
-// tx-bound clone, so all repos sharing one Base write through a single
-// transaction. The ctx is injected at resolution time (via remy.GetWithContext)
-// and drives every per-query timeout through Ctx.
+// Base is embedded (by pointer) into every concrete repo. BeginTx swaps queries
+// to a tx-bound clone, so all repos sharing one Base write through a single
+// transaction. The injected ctx drives every per-query timeout through Ctx.
 type Base[Q Queries[Q]] struct {
 	ctx     context.Context
 	conn    *sql.DB
@@ -65,12 +63,11 @@ func (b *Base[Q]) Ctx() (context.Context, context.CancelFunc) {
 	return context.WithTimeout(parent, defaultQueryTimeoutSeconds*time.Second)
 }
 
-// GenericRepository implements the syncer-facing Begin: it opens one tx on a
-// fresh Base (built via newBase) and wraps it with newTx. Each dialect supplies
-// both constructors, so the transaction plumbing lives here once instead of
-// being copied per dialect.
+// GenericRepository implements the syncer-facing Begin once for all dialects;
+// each dialect supplies the newBase / newTx constructors.
 type GenericRepository[Q Queries[Q], T any] struct {
 	*Base[Q]
+
 	newBase func(context.Context, *sql.DB) *Base[Q]
 	newTx   func(*Base[Q], OnFinishFunc) T
 }
@@ -83,16 +80,20 @@ func NewGenericRepository[Q Queries[Q], T any](
 	return &GenericRepository[Q, T]{Base: base, newBase: newBase, newTx: newTx}
 }
 
-// Begin opens one transaction on a fresh Base (sharing this repo's injected
-// context) and hands back the dialect's tx adapter.
 func (r *GenericRepository[Q, T]) Begin() (T, error) {
 	base := r.newBase(r.Context(), r.Connection())
 	bctx, cancel := base.Ctx()
-	defer cancel()
 	finish, err := base.BeginTx(bctx, nil)
 	if err != nil {
+		cancel()
 		var zero T
 		return zero, err
 	}
-	return r.newTx(base, finish), nil
+	// Release the tx context only once the transaction finishes; cancelling at
+	// Begin return would make database/sql roll the tx back out from under the
+	// caller before it can Commit.
+	return r.newTx(base, func(commit bool) error {
+		defer cancel()
+		return finish(commit)
+	}), nil
 }
