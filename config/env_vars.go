@@ -1,35 +1,19 @@
 package config
 
-import (
-	"os"
-	"strconv"
-)
-
+// Environment variable names used by LoadFromEnv.
+// All share the OLH_ prefix; rename to SPORTSMON_ at the module rename commit.
 const (
-	envUseDebug        = "DEBUG"
-	envProjectName     = "PROJECT_NAME"
-	envDiscordToken    = "DISCORD_TOKEN"
-	envDiscordClientID = "DISCORD_CLIENT_ID"
-
-	envDatabasePath   = "DATABASE_PATH"
-	envWatchCountries = "WATCH_COUNTRIES"
-	envAPILocale      = "API_LOCALE"
+	envDebug     = "OLH_DEBUG"
+	envDBDriver  = "OLH_DB_DRIVER"
+	envDBDSN     = "OLH_DB_DSN"
+	envDBMigrate = "OLH_DB_MIGRATE"
+	envCacheBack = "OLH_CACHE_BACKEND"
+	envCachePath = "OLH_CACHE_PATH"
+	envCacheTTL  = "OLH_CACHE_TTL"
+	envDiscToken = "OLH_DISCORD_TOKEN" //nolint:gosec // env var name, not a credential
+	envDiscGuild = "OLH_DISCORD_GUILD_ID"
+	envDiscChan  = "OLH_DISCORD_CHANNEL"
+	envSyncInt   = "OLH_SYNC_INTERVAL"
+	envNotifWin  = "OLH_NOTIFY_WINDOW"
+	envDiscHoriz = "OLH_DISCORD_HORIZON"
 )
-
-type EnvLoader struct{}
-
-func (l EnvLoader) GetString(element *string, name string) string {
-	if result := os.Getenv(name); result != "" {
-		*element = result
-	}
-	return *element
-}
-
-func (l EnvLoader) GetUint16(element *uint16, name string) uint16 {
-	resultStr := os.Getenv(name)
-
-	if value, err := strconv.ParseUint(resultStr, 10, 16); err == nil {
-		*element = uint16(value)
-	}
-	return *element
-}

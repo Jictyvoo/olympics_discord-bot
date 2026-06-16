@@ -1,77 +1,45 @@
 package config
 
 import (
-	"fmt"
-	"io"
 	"os"
-	"strings"
 
 	"github.com/BurntSushi/toml"
+	"github.com/jictyvoo/olhojogo/pkg/confloader"
 )
 
-type Loader interface {
-	GetString(element *string, name string) string
-	GetUint16(element *uint16, name string) uint16
+// Load reads the TOML file at path (falling back to CONF_FILE env, then
+// "conf.toml") and overlays env vars on top.
+func Load(path string) (Config, error) {
+	conf := Default()
+	if path == "" {
+		path = os.Getenv("CONF_FILE")
+	}
+	if path == "" {
+		path = "conf.toml"
+	}
+	if _, err := toml.DecodeFile(path, &conf); err != nil && !os.IsNotExist(err) {
+		return conf, err
+	}
+	if err := LoadFromEnv(&conf); err != nil {
+		return conf, err
+	}
+	return conf, nil
 }
 
-func DefaultConfig() Config {
-	return Config{
-		IsDebug:     false,
-		ProjectName: "olympics_PARIS--2024",
-		DBPath:      "olympics-2024_PARIS.db",
-	}
-}
-
-func LoadConfigFromLoader(config *Config, loader Loader) {
-	// Load debug info
-	var useDebug string
-	loader.GetString(&useDebug, envUseDebug)
-	if !config.IsDebug && useDebug != "" {
-		config.IsDebug = strings.ToLower(useDebug) != "false"
-	}
-
-	LoadDiscord(&config.Discord, loader)
-	loader.GetString(&config.DBPath, envDatabasePath)
-	loader.GetString(&config.ProjectName, envProjectName)
-	loader.GetString(&config.Runtime.APILocale, envAPILocale)
-
-	var countries string
-	if loader.GetString(&countries, envWatchCountries); countries != "" {
-		config.Runtime.WatchCountries = strings.Split(countries, ",")
-		for index, country := range config.Runtime.WatchCountries {
-			// Ensure that has no space on the name
-			config.Runtime.WatchCountries[index] = strings.TrimSpace(country)
-		}
-	}
-}
-
-func LoadDiscord(conf *Discord, loader Loader) {
-	loader.GetString(&conf.Token, envDiscordToken)
-	loader.GetString(&conf.ClientID, envDiscordClientID)
-}
-
-func LoadTOML(paths ...string) (config Config, err error) {
-	config = DefaultConfig()
-
-	for _, path := range paths {
-		var (
-			file      *os.File
-			fileBytes []byte
-		)
-
-		file, err = os.OpenFile(path, os.O_RDONLY, os.ModePerm)
-		if os.IsNotExist(err) || file == nil {
-			err = fmt.Errorf("unable to load config from %s: %w", path, err)
-			return
-		}
-
-		if fileBytes, err = io.ReadAll(file); err == nil {
-			err = toml.Unmarshal(fileBytes, &config)
-			if err != nil {
-				return
-			}
-		}
-	}
-
-	return
+func LoadFromEnv(conf *Config) error {
+	return confloader.BindEnv(
+		confloader.BindField(&conf.Debug, envDebug, confloader.ParseBool),
+		confloader.BindField(&conf.Database.Driver, envDBDriver, confloader.ParseString),
+		confloader.BindField(&conf.Database.DSN, envDBDSN, confloader.ParseString),
+		confloader.BindField(&conf.Database.RunMigrations, envDBMigrate, confloader.ParseBool),
+		confloader.BindField(&conf.Cache.Backend, envCacheBack, confloader.ParseString),
+		confloader.BindField(&conf.Cache.FilePath, envCachePath, confloader.ParseString),
+		confloader.BindField(&conf.Cache.TTL, envCacheTTL, confloader.ParseDuration),
+		confloader.BindField(&conf.Discord.Token, envDiscToken, confloader.ParseString),
+		confloader.BindField(&conf.Discord.GuildID, envDiscGuild, confloader.ParseString),
+		confloader.BindField(&conf.Discord.DefaultChannel, envDiscChan, confloader.ParseString),
+		confloader.BindField(&conf.Runtime.SyncInterval, envSyncInt, confloader.ParseDuration),
+		confloader.BindField(&conf.Runtime.NotifyWindow, envNotifWin, confloader.ParseDuration),
+		confloader.BindField(&conf.Runtime.DiscordHorizon, envDiscHoriz, confloader.ParseDuration),
+	)
 }
