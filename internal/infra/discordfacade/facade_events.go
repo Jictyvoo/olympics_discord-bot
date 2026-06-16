@@ -2,8 +2,16 @@ package discordfacade
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
+)
+
+// External events require a non-empty location and an end strictly after the
+// start; these cover fixtures whose venue or end time is unknown.
+const (
+	defaultEventLocation = "TBD"
+	defaultEventDuration = 2 * time.Hour
 )
 
 func (c *Client) CreateScheduledEvent(
@@ -45,22 +53,32 @@ func buildParams(
 	in ScheduledEventInput,
 	status discordgo.GuildScheduledEventStatus,
 ) *discordgo.GuildScheduledEventParams {
+	start := in.StartsAt
+	end := in.EndsAt
+	if !end.After(start) {
+		end = start.Add(defaultEventDuration)
+	}
+
 	p := &discordgo.GuildScheduledEventParams{
 		Name:               in.Name,
 		Description:        in.Description,
-		ScheduledStartTime: &in.StartsAt,
-		ScheduledEndTime:   &in.EndsAt,
+		ScheduledStartTime: &start,
+		ScheduledEndTime:   &end,
 		PrivacyLevel:       discordgo.GuildScheduledEventPrivacyLevelGuildOnly,
 		Status:             status,
 	}
 	if in.ChannelID != "" {
 		p.ChannelID = in.ChannelID
 		p.EntityType = discordgo.GuildScheduledEventEntityTypeVoice
-	} else {
-		p.EntityType = discordgo.GuildScheduledEventEntityTypeExternal
-		if in.Location != "" {
-			p.EntityMetadata = &discordgo.GuildScheduledEventEntityMetadata{Location: in.Location}
-		}
+		return p
 	}
+
+	// External events require entity_metadata.location to be present.
+	location := in.Location
+	if location == "" {
+		location = defaultEventLocation
+	}
+	p.EntityType = discordgo.GuildScheduledEventEntityTypeExternal
+	p.EntityMetadata = &discordgo.GuildScheduledEventEntityMetadata{Location: location}
 	return p
 }
