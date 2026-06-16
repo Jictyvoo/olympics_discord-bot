@@ -33,6 +33,29 @@ func TestService_HandleCommand_Add(t *testing.T) {
 	}
 }
 
+func TestService_HandleCommand_Add_NormalizesCountry(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	repo := NewMockRepository(ctrl)
+
+	var got eventcore.Subscription
+	repo.EXPECT().
+		AddSubscription(gomock.Any()).
+		Do(func(s eventcore.Subscription) { got = s }).
+		Return(nil)
+
+	// Mixed casing and stray spaces must canonicalize so repeats don't duplicate.
+	reply, err := New(repo).HandleCommand("add", "g1", "u1", "country", "  brasil ")
+	if err != nil {
+		t.Fatalf("HandleCommand: %v", err)
+	}
+	if got.Value != "BRASIL" {
+		t.Fatalf("country not normalized: %q", got.Value)
+	}
+	if !strings.Contains(reply, "Subscribed you to country BRASIL") {
+		t.Fatalf("reply = %q", reply)
+	}
+}
+
 func TestService_HandleCommand_AddAllResultsNoValue(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	repo := NewMockRepository(ctrl)

@@ -81,8 +81,21 @@ func buildSubscription(
 		GuildID: guildID,
 		UserID:  userID,
 		Kind:    k,
-		Value:   value,
+		Value:   normalizeValue(k, value),
 	}, nil
+}
+
+// normalizeValue canonicalizes a country or discipline value to a single form
+// so the same intent always maps to one subscription row regardless of the
+// casing/spacing the user typed (e.g. "brasil", "Brasil", " BRASIL " -> "BRASIL").
+// Matching is case-insensitive, so upper-casing never breaks country-code lookup.
+func normalizeValue(kind eventcore.SubscriptionKind, value string) string {
+	value = strings.Join(strings.Fields(value), " ")
+	switch kind {
+	case eventcore.SubscribeCountry, eventcore.SubscribeDiscipline:
+		return strings.ToUpper(value)
+	}
+	return value
 }
 
 func describe(sub eventcore.Subscription) string {
