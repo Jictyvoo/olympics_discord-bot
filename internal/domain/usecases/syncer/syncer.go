@@ -43,6 +43,24 @@ func (s *Syncer) SyncDay(day time.Time) error {
 	return errors.Join(errs...)
 }
 
+// SyncRange fetches and persists every day in [from, to] inclusive, advancing
+// one calendar day at a time. A failing day is recorded and the range
+// continues; all day errors are joined into the result.
+func (s *Syncer) SyncRange(from, to time.Time) error {
+	from = from.UTC().Truncate(hoursPerDay * time.Hour)
+	to = to.UTC().Truncate(hoursPerDay * time.Hour)
+
+	var errs []error
+	for day := from; !day.After(to); day = day.AddDate(0, 0, 1) {
+		if err := s.SyncDay(day); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
+}
+
+const hoursPerDay = 24
+
 func (s *Syncer) syncProviderDay(p provider.Strategy, day time.Time) error {
 	scope := day.UTC().Format(time.DateOnly)
 	delta, err := p.SyncFixturesByDate(s.ctx, day)
@@ -59,81 +77,4 @@ func (s *Syncer) syncProviderDay(p provider.Strategy, day time.Time) error {
 	}
 
 	return s.repo.SaveCursor(p.Code(), scope, delta.Cursor)
-}
-
-// persist writes every record in the delta within a single transaction in
-// FK-safe order so that parents exist before their children:
-// Competitions -> Seasons -> Stages -> Groups -> Venues -> Participants ->
-// Fixtures (+ FixtureParticipants) -> Results -> Standings.
-func (s *Syncer) persist(delta eventcore.SyncDelta) error {
-	tx, err := s.repo.Begin()
-	if err != nil {
-		return err
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	if err = persistEach(delta.Competitions, tx.UpsertCompetition); err != nil {
-		return err
-	}
-	if err = persistEach(delta.Seasons, tx.UpsertSeason); err != nil {
-		return err
-	}
-	if err = persistEach(delta.Stages, tx.UpsertStage); err != nil {
-		return err
-	}
-	if err = persistEach(delta.Groups, tx.UpsertGroup); err != nil {
-		return err
-	}
-	if err = persistEach(delta.Venues, tx.UpsertVenue); err != nil {
-		return err
-	}
-	if err = persistEach(delta.Participants, tx.UpsertParticipant); err != nil {
-		return err
-	}
-	if err = persistFixtures(tx, delta.Fixtures); err != nil {
-		return err
-	}
-	if err = persistEach(delta.Results, tx.UpsertResult); err != nil {
-		return err
-	}
-	if err = persistEach(delta.Standings, tx.UpsertStanding); err != nil {
-		return err
-	}
-	if err = tx.Commit(); err != nil {
-		return err
-	}
-
-	// Emit each persisted fixture so observers (notifier, discordsync) react
-	// only to durably-committed state.
-	if s.events != nil {
-		for _, f := range delta.Fixtures {
-			s.events.Emit(f)
-		}
-	}
-	return nil
-}
-
-// persistFixtures upserts each fixture together with its participant links.
-func persistFixtures(tx Tx, fixtures []eventcore.Fixture) error {
-	for _, f := range fixtures {
-		if err := tx.UpsertFixture(f); err != nil {
-			return err
-		}
-		if err := tx.UpsertFixtureParticipants(f.ID, f.Participants); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func persistEach[T any](
-	items []T,
-	upsert func(T) error,
-) error {
-	for _, item := range items {
-		if err := upsert(item); err != nil {
-			return err
-		}
-	}
-	return nil
 }
