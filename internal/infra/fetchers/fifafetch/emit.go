@@ -14,7 +14,7 @@ func (b *matchBuilder) emitCompetition(m apiMatch, lang string) eventcore.Canoni
 			},
 			Code:       m.IdCompetition,
 			Name:       localized(m.CompetitionName, lang),
-			Discipline: "football",
+			Discipline: footballDiscipline(lang),
 		})
 	}
 	return id
@@ -97,7 +97,7 @@ func (b *matchBuilder) emitVenue(s apiStadium, lang string) *eventcore.Canonical
 }
 
 func (b *matchBuilder) emitParticipants(m apiMatch, lang string) []eventcore.FixtureParticipant {
-	parts := make([]eventcore.FixtureParticipant, 0, 2)
+	parts := make([]eventcore.FixtureParticipant, 0, sidesPerMatch)
 	for _, side := range []struct {
 		team apiTeam
 		role string

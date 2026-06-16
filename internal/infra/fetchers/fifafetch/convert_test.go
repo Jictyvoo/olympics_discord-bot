@@ -47,6 +47,24 @@ func TestMapOutcome(t *testing.T) {
 	}
 }
 
+func TestFootballDiscipline(t *testing.T) {
+	cases := []struct {
+		lang, want string
+	}{
+		{"pt", disciplineFutebol},
+		{"pt-BR", disciplineFutebol},
+		{"EN", disciplineFootball},
+		{"es", "Fútbol"},
+		{"ja", disciplineFootball},
+		{"", disciplineFootball},
+	}
+	for _, tc := range cases {
+		if got := footballDiscipline(tc.lang); got != tc.want {
+			t.Errorf("footballDiscipline(%q) = %q, want %q", tc.lang, got, tc.want)
+		}
+	}
+}
+
 func TestLocalized(t *testing.T) {
 	texts := localizedText{
 		{Locale: "fr-FR", Description: "Mexique"},

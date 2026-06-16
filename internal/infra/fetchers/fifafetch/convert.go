@@ -7,15 +7,26 @@ import (
 	"github.com/jictyvoo/olhojogo/internal/domain/eventcore"
 )
 
-// mapResults yields one result per side, only for a finished match with both
-// scores present.
+const (
+	sidesPerMatch = 2
+	langKeyLen    = 2
+	genderMale    = 1
+	genderFemale  = 2
+)
+
+const (
+	disciplineFootball = "Football"
+	disciplineFutebol  = "Futebol"
+)
+
+// mapResults yields results only for a finished match with both scores present.
 func mapResults(
 	m apiMatch, fixtureID eventcore.CanonicalID, status eventcore.FixtureStatus,
 ) []eventcore.Result {
 	if status != eventcore.FixtureFinished || m.HomeTeamScore == nil || m.AwayTeamScore == nil {
 		return nil
 	}
-	out := make([]eventcore.Result, 0, 2)
+	out := make([]eventcore.Result, 0, sidesPerMatch)
 	for _, side := range []struct {
 		team  apiTeam
 		score int
@@ -69,19 +80,39 @@ func mapStatus(raw int) eventcore.FixtureStatus {
 	}
 }
 
+var footballDisciplineByLang = map[string]string{
+	"pt": disciplineFutebol,
+	"en": disciplineFootball,
+	"es": "Fútbol",
+	"fr": disciplineFootball,
+	"de": "Fußball",
+	"it": "Calcio",
+}
+
+// footballDiscipline is prefix tolerant ("pt-BR" -> "pt") and falls back to English.
+func footballDiscipline(lang string) string {
+	key := strings.ToLower(lang)
+	if len(key) >= langKeyLen {
+		key = key[:langKeyLen]
+	}
+	if label, ok := footballDisciplineByLang[key]; ok {
+		return label
+	}
+	return disciplineFootball
+}
+
 // mapGender maps the upstream gender (1 male, 2 female) to the generic code.
 func mapGender(g int) string {
 	switch g {
-	case 1:
+	case genderMale:
 		return "M"
-	case 2:
+	case genderFemale:
 		return "F"
 	}
 	return ""
 }
 
-// mapOutcome derives a side's outcome from the winner team id; empty winner on a
-// finished match is a draw.
+// mapOutcome treats an empty winner on a finished match as a draw.
 func mapOutcome(winnerTeamID, teamID string) eventcore.Outcome {
 	if winnerTeamID == "" {
 		return eventcore.OutcomeDraw
@@ -92,8 +123,8 @@ func mapOutcome(winnerTeamID, teamID string) eventcore.Outcome {
 	return eventcore.OutcomeLoss
 }
 
-// localized returns the description matching lang (case-insensitive, prefix
-// tolerant so "en" matches "en-GB"), falling back to the first entry.
+// localized matches lang case-insensitively and prefix-tolerantly ("en" ~ "en-GB"),
+// falling back to the first entry.
 func localized(texts localizedText, lang string) string {
 	if len(texts) == 0 {
 		return ""
