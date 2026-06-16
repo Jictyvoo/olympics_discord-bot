@@ -35,7 +35,14 @@ func TestMapOutcome(t *testing.T) {
 	}
 	for _, tc := range cases {
 		if got := mapOutcome(tc.winner, tc.team); got != tc.want {
-			t.Errorf("%s: mapOutcome(%q,%q) = %q, want %q", tc.name, tc.winner, tc.team, got, tc.want)
+			t.Errorf(
+				"%s: mapOutcome(%q,%q) = %q, want %q",
+				tc.name,
+				tc.winner,
+				tc.team,
+				got,
+				tc.want,
+			)
 		}
 	}
 }

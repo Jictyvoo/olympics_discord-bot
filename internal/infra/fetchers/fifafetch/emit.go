@@ -7,8 +7,11 @@ func (b *matchBuilder) emitCompetition(m apiMatch, lang string) eventcore.Canoni
 	if _, ok := b.compSeen[m.IdCompetition]; !ok {
 		b.compSeen[m.IdCompetition] = struct{}{}
 		b.out.competitions = append(b.out.competitions, eventcore.Competition{
-			ID:         id,
-			Ext:        eventcore.ExternalID{Provider: eventcore.ProviderFIFA, Key: m.IdCompetition},
+			ID: id,
+			Ext: eventcore.ExternalID{
+				Provider: eventcore.ProviderFIFA,
+				Key:      m.IdCompetition,
+			},
 			Code:       m.IdCompetition,
 			Name:       localized(m.CompetitionName, lang),
 			Discipline: "football",

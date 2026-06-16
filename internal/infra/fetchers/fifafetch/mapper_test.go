@@ -97,6 +97,10 @@ func TestMapMatches_SkipsPlaceholderFixtures(t *testing.T) {
 		t.Errorf("kept the wrong fixture: %q", mapped.fixtures[0].Ext.Key)
 	}
 	if len(mapped.stages) != 1 || len(mapped.participants) != 2 {
-		t.Errorf("placeholder leaked: stages=%d participants=%d", len(mapped.stages), len(mapped.participants))
+		t.Errorf(
+			"placeholder leaked: stages=%d participants=%d",
+			len(mapped.stages),
+			len(mapped.participants),
+		)
 	}
 }
