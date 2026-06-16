@@ -15,5 +15,7 @@ SELECT * FROM notifications WHERE checksum = ? LIMIT 1;
 -- name: UpdateNotificationStatus :exec
 UPDATE notifications SET status = ? WHERE id = ?;
 
--- name: ListNotificationsByAlert :many
-SELECT * FROM notifications WHERE alert_id = ? ORDER BY created_at DESC;
+-- name: GetLatestSentNotificationByAlert :one
+SELECT * FROM notifications
+WHERE alert_id = ? AND status = 'sent' AND message_id IS NOT NULL AND message_id <> ''
+ORDER BY created_at DESC LIMIT 1;

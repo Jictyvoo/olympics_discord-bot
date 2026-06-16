@@ -10,10 +10,17 @@ ON DUPLICATE KEY UPDATE
 -- name: GetCompetition :one
 SELECT * FROM competitions WHERE id = ? LIMIT 1;
 
--- name: GetCompetitionByFixture :one
-SELECT c.id, c.created_at, c.updated_at, c.provider_id, c.external_key, c.code, c.name, c.discipline
-FROM competitions c
-JOIN seasons s ON s.competition_id = c.id
-JOIN stages st ON st.season_id = s.id
-JOIN fixtures f ON f.stage_id = st.id
+-- name: GetFixtureContext :one
+SELECT
+    c.code        AS competition_code,
+    c.name        AS competition_name,
+    c.discipline  AS discipline,
+    st.name       AS stage_name,
+    st.ord        AS stage_ord,
+    g.name        AS group_name
+FROM fixtures f
+JOIN stages st      ON st.id = f.stage_id
+JOIN seasons s      ON s.id = st.season_id
+JOIN competitions c ON c.id = s.competition_id
+LEFT JOIN `groups` g  ON g.id = f.group_id
 WHERE f.id = ? LIMIT 1;

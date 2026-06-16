@@ -7,9 +7,3 @@ ON CONFLICT(fixture_id, participant_id) DO UPDATE SET
     raw_mark   = excluded.raw_mark,
     outcome    = excluded.outcome,
     updated_at = DATETIME('now');
-
--- name: ListResultsByFixture :many
-SELECT * FROM results WHERE fixture_id = ? ORDER BY position ASC NULLS LAST;
-
--- name: ListResultsByParticipant :many
-SELECT * FROM results WHERE participant_id = ? ORDER BY created_at DESC;
