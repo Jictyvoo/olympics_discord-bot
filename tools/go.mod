@@ -1,4 +1,4 @@
-module github.com/jictyvoo/olympics_data_fetcher/tools
+module github.com/jictyvoo/olhojogo/tools
 
 go 1.26.0
 

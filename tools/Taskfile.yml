@@ -34,3 +34,9 @@ tasks:
     dir: "{{.TASKFILE_DIR}}/.."
     cmds:
       - go vet ./...
+
+  mocks:
+    desc: Regenerate the colocated *_mock_test.go files from their //go:generate directives
+    dir: "{{.TASKFILE_DIR}}/.."
+    cmds:
+      - go generate ./...

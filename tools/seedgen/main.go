@@ -55,7 +55,7 @@ func main() {
 	}
 
 	var byIOC map[string]rawCountry
-	if err := json.Unmarshal(raw, &byIOC); err != nil {
+	if err = json.Unmarshal(raw, &byIOC); err != nil {
 		log.Fatalf("seedgen: parse json: %v", err)
 	}
 
@@ -80,10 +80,10 @@ func main() {
 	sort.Slice(entries, func(i, j int) bool { return entries[i].ISO2 < entries[j].ISO2 })
 
 	name := *ts + "_seed_countries.sql"
-	if err := writeFile(filepath.Join(*out, "sqlite", name), entries, dialectSQLite); err != nil {
+	if err = writeFile(filepath.Join(*out, "sqlite", name), entries, dialectSQLite); err != nil {
 		log.Fatal(err)
 	}
-	if err := writeFile(filepath.Join(*out, "mysql", name), entries, dialectMySQL); err != nil {
+	if err = writeFile(filepath.Join(*out, "mysql", name), entries, dialectMySQL); err != nil {
 		log.Fatal(err)
 	}
 	fmt.Printf("seedgen: wrote %d countries to sqlite + mysql migrations\n", len(entries))

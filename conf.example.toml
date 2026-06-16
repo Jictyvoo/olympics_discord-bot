@@ -1,0 +1,35 @@
+project_name = "olhojogo"
+debug = false
+
+[runtime]
+sync_interval   = "4m"
+notify_window   = "3h30m"
+discord_horizon = "336h"  # 14 days
+
+[database]
+driver         = "sqlite"
+run_migrations = true
+timeout        = "30s"
+# dsn comes from OLH_DB_DSN env var
+
+[cache]
+backend   = "file"
+file_path = ".cache"
+ttl       = "4m"
+
+[discord]
+guild_id        = ""
+default_channel = "sports"
+# token comes from OLH_DISCORD_TOKEN env var
+
+[[providers]]
+code     = "olympics"
+enabled  = true
+base_url = "https://sph-s-api.olympics.com/summer/schedules/api"
+language = "ENG"
+
+[[providers]]
+code     = "fifa"
+enabled  = false
+base_url = "https://api.fifa.com/api/v3"
+language = "en"
