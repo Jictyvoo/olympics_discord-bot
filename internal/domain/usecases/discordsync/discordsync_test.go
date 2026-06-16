@@ -124,6 +124,25 @@ func TestDiscordSync_SkipsWhenChecksumUnchanged(t *testing.T) {
 	}
 }
 
+func TestDiscordSync_SkipsPastFixture(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	// A historical (already kicked-off) fixture from the backfill.
+	f := mkFixture("past", eventcore.FixtureFinished)
+	f.StartsAt = time.Now().Add(-3 * time.Hour)
+	f.EndsAt = time.Now().Add(-time.Hour)
+
+	repo := NewMockDiscordEventRepo(ctrl)
+	repo.EXPECT().
+		GetDiscordEventByFixture(f.ID, gomock.Any()).
+		Return(eventcore.DiscordEvent{}, sql.ErrNoRows)
+
+	// No facade or upsert calls: Discord cannot schedule events in the past.
+	fac := NewMockScheduledEventFacade(ctrl)
+
+	ds := New(NewMockFixtureReader(ctrl), repo, fac, "guild", 0)
+	ds.On(f)
+}
+
 func TestDiscordSync_CancelsWhenFixtureCancelled(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	f := mkFixture("c4", eventcore.FixtureCancelled)
