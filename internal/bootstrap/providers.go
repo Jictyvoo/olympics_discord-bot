@@ -22,7 +22,7 @@ func registerProviders(inj remy.Injector, conf appconfig.Config) {
 		case eventcore.ProviderOlympics:
 			olympicsfetch.Register(inj, pc.BaseURL, pc.Language)
 		case eventcore.ProviderFIFA:
-			fifafetch.Register(inj)
+			fifafetch.Register(inj, pc.BaseURL, pc.Language, pc.CompetitionID, pc.SeasonID)
 		default:
 			slog.Warn("bootstrap: unknown provider code", slog.String("code", pc.Code))
 			continue
