@@ -1,56 +1,36 @@
 package main
 
 import (
-	"fmt"
 	"log/slog"
 	"os"
-
-	"github.com/bwmarrin/discordgo"
-	"github.com/wrapped-owls/goremy-di/remy"
-
-	"github.com/jictyvoo/olympics_data_fetcher/internal/bootstrap"
-	"github.com/jictyvoo/olympics_data_fetcher/internal/domain/services"
 )
 
+const exitUsage = 2
+
 func main() {
-	conf := bootstrap.Config()
-	db := bootstrap.OpenDatabase(conf.DBPath)
-	defer db.Close()
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))
+	slog.SetDefault(logger)
 
-	inj := remy.NewInjector(remy.Config{DuckTypeElements: true})
-	remy.RegisterInstance(inj, db)
-	bootstrap.DoInjections(inj, conf)
+	opts := parseArgs(os.Args[1:])
 
-	fmt.Println(generateInviteLink(conf.Discord.ClientID))
-	discClient, err := discordgo.New("Bot " + conf.Discord.Token)
-	if err != nil {
-		slog.Error(
-			"Error creating Discord session",
-			slog.String("error", err.Error()),
-		)
-		os.Exit(1)
+	switch opts.Subcommand {
+	case "serve":
+		if err := serve(opts.ConfigPath); err != nil {
+			slog.Error("serve failed", slog.String("err", err.Error()))
+			os.Exit(1)
+		}
+	case "migrate":
+		if err := migrate(opts.ConfigPath); err != nil {
+			slog.Error("migrate failed", slog.String("err", err.Error()))
+			os.Exit(1)
+		}
+	case "version":
+		printVersion()
+	default:
+		slog.Error("unknown subcommand", slog.String("cmd", opts.Subcommand))
+		slog.Info("usage: olhojogo [serve|migrate|version] [-config path]")
+		os.Exit(exitUsage)
 	}
-
-	cancelChan := make(services.CancelChannel, 1)
-	notifierServ, err := remy.DoGetGenFunc[*services.EventNotifier](
-		inj, func(injector remy.Injector) error {
-			remy.RegisterInstance(injector, cancelChan)
-			return nil
-		},
-	)
-	if err != nil {
-		slog.Error(
-			"Error getting notifier service",
-			slog.String("error", err.Error()),
-		)
-		return
-	}
-	bot := NewOlympicsBot(notifierServ, conf.Runtime.WatchCountries)
-	discClient.AddHandler(bot.ReadyHandler)
-	// discClient.AddHandler(bot.MessagesHandler)
-	discClient.Identify.Intents = discordgo.MakeIntent(
-		discordgo.IntentsGuildMessages | discordgo.IntentsMessageContent,
-	)
-
-	gracefullShutdown(cancelChan, notifierServ, discClient)
 }
