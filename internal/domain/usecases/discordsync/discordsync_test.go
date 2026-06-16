@@ -43,6 +43,7 @@ func TestDiscordSync_CreatesWhenMissing(t *testing.T) {
 		Return(nil)
 
 	fac := NewMockScheduledEventFacade(ctrl)
+	fac.EXPECT().ListScheduledEvents(gomock.Any()).Return(nil, nil)
 	fac.EXPECT().
 		CreateScheduledEvent(gomock.Any(), gomock.Any()).
 		Return("discord-1", nil)
@@ -53,6 +54,45 @@ func TestDiscordSync_CreatesWhenMissing(t *testing.T) {
 	}
 	if upserted.DiscordEventID != "discord-1" {
 		t.Fatalf("expected upsert with discord-1; got %+v", upserted)
+	}
+}
+
+func TestDiscordSync_AdoptsExistingEventInsteadOfCreating(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	f := mkFixture("dup", eventcore.FixtureScheduled)
+
+	reader := NewMockFixtureReader(ctrl)
+	reader.EXPECT().
+		ListFixturesStartingBefore(gomock.Any()).
+		Return([]eventcore.Fixture{f}, nil)
+
+	repo := NewMockDiscordEventRepo(ctrl)
+	repo.EXPECT().
+		GetDiscordEventByFixture(f.ID, gomock.Any()).
+		Return(eventcore.DiscordEvent{}, sql.ErrNoRows)
+	var upserted eventcore.DiscordEvent
+	repo.EXPECT().
+		UpsertDiscordEvent(gomock.Any()).
+		Do(func(de eventcore.DiscordEvent) { upserted = de }).
+		Return(nil)
+
+	// Discord already has an event for this fixture (same description) -> adopt it.
+	existing := discordfacade.ScheduledEvent{
+		ID:          "evt-existing",
+		Description: buildEventInput(f).Description,
+	}
+	fac := NewMockScheduledEventFacade(ctrl)
+	fac.EXPECT().
+		ListScheduledEvents(gomock.Any()).
+		Return([]discordfacade.ScheduledEvent{existing}, nil)
+	// CreateScheduledEvent must NOT be called: no EXPECT() => any call fails.
+
+	ds := New(reader, repo, fac, "guild", 0)
+	if err := ds.Run(); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if upserted.DiscordEventID != "evt-existing" {
+		t.Fatalf("expected to adopt evt-existing; got %+v", upserted)
 	}
 }
 

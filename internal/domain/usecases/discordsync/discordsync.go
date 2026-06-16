@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jictyvoo/olhojogo/internal/domain/eventcore"
+	"github.com/jictyvoo/olhojogo/internal/infra/discordfacade"
 )
 
 const (
@@ -105,10 +106,15 @@ func (ds *DiscordSync) reconcile(f eventcore.Fixture) error {
 	input := buildEventInput(f)
 
 	if notFound || discordEvent.DiscordEventID == "" {
-		// Create new.
-		evtID, createErr := ds.discord.CreateScheduledEvent(ds.guildID, input)
-		if createErr != nil {
-			return createErr
+		// Adopt an event Discord already has for this fixture (e.g. when the local
+		// ledger was reset) instead of creating a duplicate.
+		evtID, found := ds.existingEventID(input)
+		if !found {
+			created, createErr := ds.discord.CreateScheduledEvent(ds.guildID, input)
+			if createErr != nil {
+				return createErr
+			}
+			evtID = created
 		}
 		return ds.repo.UpsertDiscordEvent(eventcore.DiscordEvent{
 			FixtureID:      f.ID,
@@ -132,4 +138,21 @@ func (ds *DiscordSync) reconcile(f eventcore.Fixture) error {
 	}
 	discordEvent.LastChecksum = f.Checksum
 	return ds.repo.UpsertDiscordEvent(discordEvent)
+}
+
+// existingEventID returns the ID of a guild event that already represents this
+// fixture, matched by its (fixture-unique) description. Listing errors are
+// non-fatal: the caller falls back to creating the event.
+func (ds *DiscordSync) existingEventID(in discordfacade.ScheduledEventInput) (string, bool) {
+	events, err := ds.discord.ListScheduledEvents(ds.guildID)
+	if err != nil {
+		slog.Error("discordsync: list events", slog.String("err", err.Error()))
+		return "", false
+	}
+	for _, e := range events {
+		if e.Description == in.Description {
+			return e.ID, true
+		}
+	}
+	return "", false
 }

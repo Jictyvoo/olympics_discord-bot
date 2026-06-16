@@ -13,6 +13,25 @@ const (
 	defaultEventDuration = 2 * time.Hour
 )
 
+// ScheduledEvent is the minimal view used to detect duplicates before creating.
+type ScheduledEvent struct {
+	ID          string
+	Name        string
+	Description string
+}
+
+func (c *Client) ListScheduledEvents(guildID string) ([]ScheduledEvent, error) {
+	events, err := c.session.GuildScheduledEvents(guildID, false)
+	if err != nil {
+		return nil, fmt.Errorf("discordfacade: list events: %w", err)
+	}
+	out := make([]ScheduledEvent, 0, len(events))
+	for _, e := range events {
+		out = append(out, ScheduledEvent{ID: e.ID, Name: e.Name, Description: e.Description})
+	}
+	return out, nil
+}
+
 func (c *Client) CreateScheduledEvent(
 	guildID string,
 	in ScheduledEventInput,

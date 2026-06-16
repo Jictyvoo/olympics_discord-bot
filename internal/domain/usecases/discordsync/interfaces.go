@@ -30,6 +30,7 @@ type DiscordEventRepo interface {
 
 // ScheduledEventFacade is the subset of discordfacade.Facade used here.
 type ScheduledEventFacade interface {
+	ListScheduledEvents(guildID string) ([]discordfacade.ScheduledEvent, error)
 	CreateScheduledEvent(
 		guildID string,
 		in discordfacade.ScheduledEventInput,

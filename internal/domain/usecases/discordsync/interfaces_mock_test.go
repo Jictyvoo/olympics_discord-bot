@@ -162,6 +162,21 @@ func (mr *MockScheduledEventFacadeMockRecorder) CancelScheduledEvent(guildID, ev
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CancelScheduledEvent", reflect.TypeOf((*MockScheduledEventFacade)(nil).CancelScheduledEvent), guildID, eventID)
 }
 
+// ListScheduledEvents mocks base method.
+func (m *MockScheduledEventFacade) ListScheduledEvents(guildID string) ([]discordfacade.ScheduledEvent, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListScheduledEvents", guildID)
+	ret0, _ := ret[0].([]discordfacade.ScheduledEvent)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListScheduledEvents indicates an expected call of ListScheduledEvents.
+func (mr *MockScheduledEventFacadeMockRecorder) ListScheduledEvents(guildID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListScheduledEvents", reflect.TypeOf((*MockScheduledEventFacade)(nil).ListScheduledEvents), guildID)
+}
+
 // CreateScheduledEvent mocks base method.
 func (m *MockScheduledEventFacade) CreateScheduledEvent(guildID string, in discordfacade.ScheduledEventInput) (string, error) {
 	m.ctrl.T.Helper()
