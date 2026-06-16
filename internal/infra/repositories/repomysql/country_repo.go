@@ -55,6 +55,20 @@ func (r CountryRepo) ByIOC(ioc string) (eventcore.Country, error) {
 	return rowToCountry(row), nil
 }
 
+func (r CountryRepo) ListCountries() ([]eventcore.Country, error) {
+	qctx, cancel := r.Ctx()
+	defer cancel()
+	rows, err := r.Queries().ListCountries(qctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]eventcore.Country, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, rowToCountry(row))
+	}
+	return out, nil
+}
+
 func rowToCountry(row dbgen.Country) eventcore.Country {
 	return eventcore.Country{
 		ISO2:       row.Iso2,

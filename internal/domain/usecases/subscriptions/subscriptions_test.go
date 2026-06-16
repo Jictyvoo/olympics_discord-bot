@@ -92,7 +92,7 @@ func TestService_MentionsFor(t *testing.T) {
 			repo := NewMockRepository(ctrl)
 			repo.EXPECT().ListByGuild("g1").Return(tt.subs, nil)
 
-			got, err := New(repo).MentionsFor("g1", tt.countries, tt.discipline)
+			got, err := New(repo, nil).MentionsFor("g1", tt.countries, tt.discipline)
 			if err != nil {
 				t.Fatalf("MentionsFor: %v", err)
 			}

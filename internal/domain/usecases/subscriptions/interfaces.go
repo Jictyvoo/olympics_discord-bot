@@ -15,3 +15,9 @@ type Repository interface {
 	ListByGuildUser(guildID, userID string) ([]eventcore.Subscription, error)
 	ListAll() ([]eventcore.Subscription, error)
 }
+
+// CountryLister returns the known countries, used to validate and canonicalize
+// country subscription values.
+type CountryLister interface {
+	ListCountries() ([]eventcore.Country, error)
+}

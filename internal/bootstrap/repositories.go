@@ -26,6 +26,7 @@ func registerRepositories(inj remy.Injector, conf appconfig.Config, db *sql.DB) 
 		bindIface[repomysql.NotificationRepo, notifier.NotificationRepo](inj)
 		bindIface[repomysql.DiscordEventRepo, discordsync.DiscordEventRepo](inj)
 		bindIface[repomysql.SubscriptionRepo, subscriptions.Repository](inj)
+		bindIface[repomysql.CountryRepo, subscriptions.CountryLister](inj)
 		bindIface[*repomysql.Repository, syncer.Repository](inj)
 	default:
 		reposqlite.Register(inj, db)
@@ -37,6 +38,7 @@ func registerRepositories(inj remy.Injector, conf appconfig.Config, db *sql.DB) 
 		bindIface[reposqlite.NotificationRepo, notifier.NotificationRepo](inj)
 		bindIface[reposqlite.DiscordEventRepo, discordsync.DiscordEventRepo](inj)
 		bindIface[reposqlite.SubscriptionRepo, subscriptions.Repository](inj)
+		bindIface[reposqlite.CountryRepo, subscriptions.CountryLister](inj)
 		bindIface[*reposqlite.Repository, syncer.Repository](inj)
 	}
 }

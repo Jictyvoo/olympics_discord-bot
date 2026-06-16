@@ -9,10 +9,13 @@ import (
 // Service manages notification subscriptions and resolves which users should be
 // @mentioned for a given fixture.
 type Service struct {
-	repo Repository
+	repo      Repository
+	countries CountryLister
 }
 
-func New(repo Repository) Service { return Service{repo: repo} }
+func New(repo Repository, countries CountryLister) Service {
+	return Service{repo: repo, countries: countries}
+}
 
 func (s Service) Add(sub eventcore.Subscription) error {
 	return s.repo.AddSubscription(sub)
@@ -34,7 +37,6 @@ func (s Service) ListByUser(
 	return s.repo.ListByGuildUser(guildID, userID)
 }
 
-// fixtureFacts describes the matchable attributes of a fixture.
 type fixtureFacts struct {
 	countryCodes   []string
 	disciplineCode string
@@ -69,6 +71,24 @@ func (s Service) MentionsFor(
 		users = append(users, sub.UserID)
 	}
 	return users, nil
+}
+
+// resolveCountry matches value (name, IOC, ISO2 or ISO3, case-insensitive)
+// against the known countries.
+func (s Service) resolveCountry(value string) (eventcore.Country, bool) {
+	if s.countries == nil {
+		return eventcore.Country{}, false
+	}
+	all, err := s.countries.ListCountries()
+	if err != nil {
+		return eventcore.Country{}, false
+	}
+	for _, c := range all {
+		if c.IsThis(value) {
+			return c, true
+		}
+	}
+	return eventcore.Country{}, false
 }
 
 func matches(sub eventcore.Subscription, facts fixtureFacts) bool {

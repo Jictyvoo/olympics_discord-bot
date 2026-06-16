@@ -8,8 +8,7 @@ import (
 )
 
 // HandleCommand executes a subscription slash command and returns a
-// human-readable, ephemeral reply. It works on primitives so the domain package
-// stays free of any Discord/infra dependency.
+// human-readable, ephemeral reply.
 func (s Service) HandleCommand(
 	action, guildID, userID, kind, value string,
 ) (string, error) {
@@ -25,30 +24,26 @@ func (s Service) HandleCommand(
 	}
 }
 
-func (s Service) handleAdd(
-	guildID, userID, kind, value string,
-) (string, error) {
-	sub, err := buildSubscription(guildID, userID, kind, value)
+func (s Service) handleAdd(guildID, userID, kind, value string) (string, error) {
+	sub, err := s.buildSubscription(guildID, userID, kind, value)
 	if err != nil {
 		return "", err
 	}
 	if err = s.Add(sub); err != nil {
 		return "", fmt.Errorf("add subscription: %w", err)
 	}
-	return fmt.Sprintf("Subscribed you to %s.", describe(sub)), nil
+	return fmt.Sprintf("Subscribed you to %s.", s.describe(sub)), nil
 }
 
-func (s Service) handleRemove(
-	guildID, userID, kind, value string,
-) (string, error) {
-	sub, err := buildSubscription(guildID, userID, kind, value)
+func (s Service) handleRemove(guildID, userID, kind, value string) (string, error) {
+	sub, err := s.buildSubscription(guildID, userID, kind, value)
 	if err != nil {
 		return "", err
 	}
 	if err = s.Remove(sub); err != nil {
 		return "", fmt.Errorf("remove subscription: %w", err)
 	}
-	return fmt.Sprintf("Unsubscribed you from %s.", describe(sub)), nil
+	return fmt.Sprintf("Unsubscribed you from %s.", s.describe(sub)), nil
 }
 
 func (s Service) handleList(guildID, userID string) (string, error) {
@@ -62,50 +57,71 @@ func (s Service) handleList(guildID, userID string) (string, error) {
 	var b strings.Builder
 	b.WriteString("Your subscriptions:\n")
 	for _, sub := range subs {
-		fmt.Fprintf(&b, "- %s\n", describe(sub))
+		fmt.Fprintf(&b, "- %s\n", s.describe(sub))
 	}
 	return strings.TrimRight(b.String(), "\n"), nil
 }
 
-func buildSubscription(
+// buildSubscription validates the kind/value and canonicalizes the value: a
+// country is resolved to its code (rejecting unknown ones), a discipline is
+// upper-cased.
+func (s Service) buildSubscription(
 	guildID, userID, kind, value string,
 ) (eventcore.Subscription, error) {
 	k := eventcore.SubscriptionKind(kind)
 	if !k.Valid() {
 		return eventcore.Subscription{}, fmt.Errorf("invalid kind %q", kind)
 	}
-	if k != eventcore.SubscribeAllResults && strings.TrimSpace(value) == "" {
+	value = strings.Join(strings.Fields(value), " ")
+	if k != eventcore.SubscribeAllResults && value == "" {
 		return eventcore.Subscription{}, fmt.Errorf("kind %q requires a value", kind)
 	}
-	return eventcore.Subscription{
-		GuildID: guildID,
-		UserID:  userID,
-		Kind:    k,
-		Value:   normalizeValue(k, value),
-	}, nil
-}
 
-// normalizeValue canonicalizes a country or discipline value to a single form
-// so the same intent always maps to one subscription row regardless of the
-// casing/spacing the user typed (e.g. "brasil", "Brasil", " BRASIL " -> "BRASIL").
-// Matching is case-insensitive, so upper-casing never breaks country-code lookup.
-func normalizeValue(kind eventcore.SubscriptionKind, value string) string {
-	value = strings.Join(strings.Fields(value), " ")
-	switch kind {
-	case eventcore.SubscribeCountry, eventcore.SubscribeDiscipline:
-		return strings.ToUpper(value)
+	switch k {
+	case eventcore.SubscribeCountry:
+		country, ok := s.resolveCountry(value)
+		if !ok {
+			return eventcore.Subscription{}, fmt.Errorf(
+				"%q is not a recognized country; use its name or 3-letter code (e.g. BRA)", value,
+			)
+		}
+		value = countryCode(country)
+	case eventcore.SubscribeDiscipline:
+		value = strings.ToUpper(value)
 	}
-	return value
+
+	return eventcore.Subscription{GuildID: guildID, UserID: userID, Kind: k, Value: value}, nil
 }
 
-func describe(sub eventcore.Subscription) string {
+// describe renders a subscription for display, resolving a country code back to
+// its flag and name.
+func (s Service) describe(sub eventcore.Subscription) string {
 	switch sub.Kind {
 	case eventcore.SubscribeAllResults:
 		return "all results"
 	case eventcore.SubscribeCountry:
+		if c, ok := s.resolveCountry(sub.Value); ok {
+			if flag := c.EmojiFlag(); flag != "" {
+				return "country " + flag + " " + c.Name
+			}
+			return "country " + c.Name
+		}
 		return "country " + sub.Value
 	case eventcore.SubscribeDiscipline:
 		return "discipline " + sub.Value
 	}
 	return string(sub.Kind)
+}
+
+// countryCode returns the code used to match participants: IOC first, then ISO3,
+// then ISO2.
+func countryCode(c eventcore.Country) string {
+	switch {
+	case c.IOCCode != "":
+		return c.IOCCode
+	case c.ISO3 != "":
+		return c.ISO3
+	default:
+		return c.ISO2
+	}
 }

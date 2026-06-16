@@ -10,6 +10,17 @@ import (
 	"github.com/jictyvoo/olhojogo/internal/domain/eventcore"
 )
 
+type stubCountries struct{ list []eventcore.Country }
+
+func (s stubCountries) ListCountries() ([]eventcore.Country, error) { return s.list, nil }
+
+var testCountries = stubCountries{list: []eventcore.Country{
+	{Name: "Brazil", IOCCode: "BRA"},
+	{Name: "South Korea", IOCCode: "KOR", ISO2: "KR"},
+}}
+
+func newService(repo Repository) Service { return New(repo, testCountries) }
+
 func TestService_HandleCommand_Add(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	repo := NewMockRepository(ctrl)
@@ -20,7 +31,8 @@ func TestService_HandleCommand_Add(t *testing.T) {
 		Do(func(s eventcore.Subscription) { got = s }).
 		Return(nil)
 
-	reply, err := New(repo).HandleCommand("add", "g1", "u1", "country", "BRA")
+	// A country name resolves to its canonical code and a friendly reply.
+	reply, err := newService(repo).HandleCommand("add", "g1", "u1", "country", "brazil")
 	if err != nil {
 		t.Fatalf("HandleCommand: %v", err)
 	}
@@ -28,31 +40,19 @@ func TestService_HandleCommand_Add(t *testing.T) {
 		got.Kind != eventcore.SubscribeCountry || got.Value != "BRA" {
 		t.Fatalf("built subscription mismatch: %+v", got)
 	}
-	if !strings.Contains(reply, "country BRA") {
+	if !strings.Contains(reply, "Subscribed you to country Brazil") {
 		t.Fatalf("reply = %q", reply)
 	}
 }
 
-func TestService_HandleCommand_Add_NormalizesCountry(t *testing.T) {
+func TestService_HandleCommand_Add_RejectsUnknownCountry(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	repo := NewMockRepository(ctrl)
+	// AddSubscription must never be called for an invalid country.
 
-	var got eventcore.Subscription
-	repo.EXPECT().
-		AddSubscription(gomock.Any()).
-		Do(func(s eventcore.Subscription) { got = s }).
-		Return(nil)
-
-	// Mixed casing and stray spaces must canonicalize so repeats don't duplicate.
-	reply, err := New(repo).HandleCommand("add", "g1", "u1", "country", "  brasil ")
-	if err != nil {
-		t.Fatalf("HandleCommand: %v", err)
-	}
-	if got.Value != "BRASIL" {
-		t.Fatalf("country not normalized: %q", got.Value)
-	}
-	if !strings.Contains(reply, "Subscribed you to country BRASIL") {
-		t.Fatalf("reply = %q", reply)
+	_, err := newService(repo).HandleCommand("add", "g1", "u1", "country", "atlantis")
+	if err == nil {
+		t.Fatal("expected an unrecognized country to be rejected")
 	}
 }
 
@@ -61,7 +61,7 @@ func TestService_HandleCommand_AddAllResultsNoValue(t *testing.T) {
 	repo := NewMockRepository(ctrl)
 	repo.EXPECT().AddSubscription(gomock.Any()).Return(nil)
 
-	reply, err := New(repo).HandleCommand("add", "g1", "u1", "all_results", "")
+	reply, err := newService(repo).HandleCommand("add", "g1", "u1", "all_results", "")
 	if err != nil {
 		t.Fatalf("HandleCommand: %v", err)
 	}
@@ -80,7 +80,7 @@ func TestService_HandleCommand_Remove(t *testing.T) {
 		Do(func(s eventcore.Subscription) { got = s }).
 		Return(nil)
 
-	reply, err := New(repo).HandleCommand("remove", "g1", "u1", "discipline", "SWM")
+	reply, err := newService(repo).HandleCommand("remove", "g1", "u1", "discipline", "SWM")
 	if err != nil {
 		t.Fatalf("HandleCommand: %v", err)
 	}
@@ -103,11 +103,11 @@ func TestService_HandleCommand_List(t *testing.T) {
 			{UserID: "u1", Kind: eventcore.SubscribeCountry, Value: "BRA"},
 		}, nil)
 
-	reply, err := New(repo).HandleCommand("list", "g1", "u1", "", "")
+	reply, err := newService(repo).HandleCommand("list", "g1", "u1", "", "")
 	if err != nil {
 		t.Fatalf("HandleCommand: %v", err)
 	}
-	if !strings.Contains(reply, "all results") || !strings.Contains(reply, "country BRA") {
+	if !strings.Contains(reply, "all results") || !strings.Contains(reply, "country Brazil") {
 		t.Fatalf("reply = %q", reply)
 	}
 }
@@ -117,7 +117,7 @@ func TestService_HandleCommand_ListEmpty(t *testing.T) {
 	repo := NewMockRepository(ctrl)
 	repo.EXPECT().ListByGuildUser("g1", "u1").Return(nil, nil)
 
-	reply, err := New(repo).HandleCommand("list", "g1", "u1", "", "")
+	reply, err := newService(repo).HandleCommand("list", "g1", "u1", "", "")
 	if err != nil {
 		t.Fatalf("HandleCommand: %v", err)
 	}
@@ -130,7 +130,7 @@ func TestService_HandleCommand_InvalidKind(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	repo := NewMockRepository(ctrl)
 
-	_, err := New(repo).HandleCommand("add", "g1", "u1", "athlete", "X")
+	_, err := newService(repo).HandleCommand("add", "g1", "u1", "athlete", "X")
 	if err == nil {
 		t.Fatal("expected error for invalid kind")
 	}
@@ -140,7 +140,7 @@ func TestService_HandleCommand_MissingValue(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	repo := NewMockRepository(ctrl)
 
-	_, err := New(repo).HandleCommand("add", "g1", "u1", "country", "")
+	_, err := newService(repo).HandleCommand("add", "g1", "u1", "country", "")
 	if err == nil {
 		t.Fatal("expected error for missing value")
 	}
@@ -150,7 +150,7 @@ func TestService_HandleCommand_UnknownAction(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	repo := NewMockRepository(ctrl)
 
-	_, err := New(repo).HandleCommand("frobnicate", "g1", "u1", "", "")
+	_, err := newService(repo).HandleCommand("frobnicate", "g1", "u1", "", "")
 	if err == nil {
 		t.Fatal("expected error for unknown action")
 	}
@@ -161,7 +161,7 @@ func TestService_HandleCommand_AddError(t *testing.T) {
 	repo := NewMockRepository(ctrl)
 	repo.EXPECT().AddSubscription(gomock.Any()).Return(errors.New("db down"))
 
-	_, err := New(repo).HandleCommand("add", "g1", "u1", "all_results", "")
+	_, err := newService(repo).HandleCommand("add", "g1", "u1", "all_results", "")
 	if err == nil {
 		t.Fatal("expected error propagated from repo")
 	}
