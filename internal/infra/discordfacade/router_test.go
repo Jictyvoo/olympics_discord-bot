@@ -7,7 +7,6 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-// stubCommands records the arguments of the last HandleCommand call.
 type stubCommands struct {
 	reply  string
 	err    error
@@ -25,7 +24,6 @@ func (s *stubCommands) HandleCommand(
 	return s.reply, s.err
 }
 
-// recordingResponder captures what a SubCommand sent.
 type recordingResponder struct {
 	content   string
 	ephemeral bool
@@ -56,14 +54,14 @@ func TestOptionMapString(t *testing.T) {
 
 func TestRouterApplicationCommand(t *testing.T) {
 	svc := &stubCommands{}
-	r := NewRouter("notify", "manage subs", nil).
+	r := NewRouter("olhojogo", "manage subs", nil).
 		Add(AddCmd(svc)).
 		Add(RemoveCmd(svc)).
 		Add(ListCmd(svc))
 
 	cmd := r.ApplicationCommand()
-	if cmd.Name != "notify" {
-		t.Errorf("Name = %q, want notify", cmd.Name)
+	if cmd.Name != "olhojogo" {
+		t.Errorf("Name = %q, want olhojogo", cmd.Name)
 	}
 	if len(cmd.Options) != 3 {
 		t.Fatalf("len(Options) = %d, want 3", len(cmd.Options))

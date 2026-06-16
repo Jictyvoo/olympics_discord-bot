@@ -25,7 +25,7 @@ func SetupDiscord(inj remy.Injector, session *discordgo.Session, guildID string)
 	}
 
 	router := discordfacade.NewRouter(
-		"notify", "Manage result notification subscriptions", slog.Default(),
+		"olhojogo", "Manage result notification subscriptions", slog.Default(),
 	).
 		Add(discordfacade.AddCmd(svc)).
 		Add(discordfacade.RemoveCmd(svc)).
