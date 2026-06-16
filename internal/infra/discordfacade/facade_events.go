@@ -7,8 +7,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-// External events require a non-empty location and an end strictly after the
-// start; these cover fixtures whose venue or end time is unknown.
+// Fallbacks for external events whose venue or end time is unknown.
 const (
 	defaultEventLocation = "TBD"
 	defaultEventDuration = 2 * time.Hour

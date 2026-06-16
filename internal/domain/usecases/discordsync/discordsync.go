@@ -97,9 +97,7 @@ func (ds *DiscordSync) reconcile(f eventcore.Fixture) error {
 		return nil
 	}
 
-	// Discord rejects events that start in the past. Fixtures that have already
-	// kicked off (live, finished, or historical backfill) are left as-is; only
-	// upcoming fixtures get a scheduled event created or updated.
+	// Discord rejects events starting in the past; only schedule upcoming fixtures.
 	if !f.StartsAt.After(time.Now()) {
 		return nil
 	}

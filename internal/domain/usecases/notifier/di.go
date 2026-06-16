@@ -9,11 +9,8 @@ import (
 	"github.com/jictyvoo/olhojogo/internal/domain/usecases/notifier/render"
 )
 
-// Register wires the Notifier into the DI container. channelName, guildID, and
-// window are the runtime parameters; the readers, NotificationRepo, and
-// Dispatcher are resolved from the graph. The factory runs after the Discord
-// session is set up, so it resolves the configured channel name to an ID
-// (creating the channel when missing) before constructing the Notifier.
+// Register wires the Notifier. The factory runs after the Discord session is up,
+// so it resolves the channel name to an ID (creating it if missing) first.
 func Register(inj remy.Injector, channelName, guildID string, window time.Duration) {
 	remy.RegisterFactory(inj, func(ret remy.DependencyRetriever) (*Notifier, error) {
 		return New(
@@ -32,8 +29,7 @@ func Register(inj remy.Injector, channelName, guildID string, window time.Durati
 	})
 }
 
-// ensureChannel resolves channelName to a channel ID (creating it if absent),
-// falling back to the raw name when no ensurer is bound or resolution fails.
+// ensureChannel resolves channelName to a channel ID, falling back to the name.
 func ensureChannel(ret remy.DependencyRetriever, guildID, channelName string) string {
 	if channelName == "" || guildID == "" {
 		return channelName
