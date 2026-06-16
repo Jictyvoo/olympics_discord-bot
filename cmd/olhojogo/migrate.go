@@ -19,7 +19,17 @@ func migrate(configPath string) error {
 	return runMigrations(conf)
 }
 
+// runMigrations applies embedded SQL migrations. Only sqlite is managed here;
+// other dialects (mysql) have their schema owned by Atlas, so this is a no-op.
 func runMigrations(conf appconfig.Config) error {
+	if conf.Database.Driver != "sqlite" {
+		slog.Info(
+			"skipping built-in migrator; only sqlite is managed here, other dialects use Atlas",
+			slog.String("driver", conf.Database.Driver),
+		)
+		return nil
+	}
+
 	db, err := sql.Open(conf.Database.Driver, conf.Database.DSN)
 	if err != nil {
 		return err
