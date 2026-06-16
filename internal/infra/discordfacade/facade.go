@@ -1,7 +1,6 @@
 package discordfacade
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -29,7 +28,9 @@ func New(session *discordgo.Session) *Client {
 	return &Client{session: session}
 }
 
-func (c *Client) ResolveChannel(_ context.Context, guildID, channelName string) (string, error) {
+// ResolveChannel returns the ID of the named text channel in the guild,
+// creating it when it does not already exist.
+func (c *Client) ResolveChannel(guildID, channelName string) (string, error) {
 	channels, err := c.session.GuildChannels(guildID)
 	if err != nil {
 		return "", fmt.Errorf("discordfacade: list channels: %w", err)

@@ -29,6 +29,12 @@ type Dispatcher interface {
 	Send(channelID, content string) (messageID string, err error)
 }
 
+// ChannelEnsurer resolves a channel name to its ID, creating the channel if it
+// does not already exist.
+type ChannelEnsurer interface {
+	ResolveChannel(guildID, channelName string) (string, error)
+}
+
 // MentionResolver resolves the user IDs to @mention for a fixture's facts.
 type MentionResolver interface {
 	MentionsFor(

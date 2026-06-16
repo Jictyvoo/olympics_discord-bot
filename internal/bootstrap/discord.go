@@ -37,6 +37,7 @@ func SetupDiscord(inj remy.Injector, session *discordgo.Session, guildID string)
 
 	// Bind the single client instance into the graph for its consumers.
 	remy.RegisterInstance[notifier.Dispatcher](inj, client)
+	remy.RegisterInstance[notifier.ChannelEnsurer](inj, client)
 	remy.RegisterInstance[discordsync.ScheduledEventFacade](inj, client)
 	remy.RegisterInstance[notifier.MentionResolver](inj, svc)
 	return nil

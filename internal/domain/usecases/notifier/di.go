@@ -1,6 +1,7 @@
 package notifier
 
 import (
+	"log/slog"
 	"time"
 
 	"github.com/wrapped-owls/goremy-di/remy"
@@ -8,12 +9,12 @@ import (
 	"github.com/jictyvoo/olhojogo/internal/domain/usecases/notifier/render"
 )
 
-// Register wires the Notifier into the DI container. channelID, guildID, and
+// Register wires the Notifier into the DI container. channelName, guildID, and
 // window are the runtime parameters; the readers, NotificationRepo, and
-// Dispatcher are resolved from the graph. The dependency count exceeds
-// RegisterConstructorArgsN, so a plain factory resolves each consumer interface
-// from the retriever.
-func Register(inj remy.Injector, channelID, guildID string, window time.Duration) {
+// Dispatcher are resolved from the graph. The factory runs after the Discord
+// session is set up, so it resolves the configured channel name to an ID
+// (creating the channel when missing) before constructing the Notifier.
+func Register(inj remy.Injector, channelName, guildID string, window time.Duration) {
 	remy.RegisterFactory(inj, func(ret remy.DependencyRetriever) (*Notifier, error) {
 		return New(
 			remy.MustGet[FixtureReader](ret),
@@ -24,9 +25,31 @@ func Register(inj remy.Injector, channelID, guildID string, window time.Duration
 			remy.MustGet[ParticipantReader](ret),
 			render.Olympics{},
 			remy.MustGet[MentionResolver](ret),
-			channelID,
+			ensureChannel(ret, guildID, channelName),
 			guildID,
 			window,
 		), nil
 	})
+}
+
+// ensureChannel resolves channelName to a channel ID (creating it if absent),
+// falling back to the raw name when no ensurer is bound or resolution fails.
+func ensureChannel(ret remy.DependencyRetriever, guildID, channelName string) string {
+	if channelName == "" || guildID == "" {
+		return channelName
+	}
+	ensurer, err := remy.Get[ChannelEnsurer](ret)
+	if err != nil {
+		return channelName
+	}
+	id, err := ensurer.ResolveChannel(guildID, channelName)
+	if err != nil {
+		slog.Warn(
+			"notifier: resolve channel",
+			slog.String("channel", channelName),
+			slog.String("err", err.Error()),
+		)
+		return channelName
+	}
+	return id
 }
