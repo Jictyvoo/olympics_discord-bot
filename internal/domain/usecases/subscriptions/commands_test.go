@@ -156,6 +156,19 @@ func TestService_HandleCommand_UnknownAction(t *testing.T) {
 	}
 }
 
+func TestService_HandleCommand_Countries(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	repo := NewMockRepository(ctrl)
+
+	reply, err := newService(repo).HandleCommand("countries", "g1", "u1", "", "")
+	if err != nil {
+		t.Fatalf("HandleCommand: %v", err)
+	}
+	if !strings.Contains(reply, "BRA") || !strings.Contains(reply, "KOR") {
+		t.Fatalf("expected available country codes in reply: %q", reply)
+	}
+}
+
 func TestService_HandleCommand_AddError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	repo := NewMockRepository(ctrl)

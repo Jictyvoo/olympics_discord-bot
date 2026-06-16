@@ -2,6 +2,7 @@ package subscriptions
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/jictyvoo/olhojogo/internal/domain/eventcore"
@@ -19,9 +20,31 @@ func (s Service) HandleCommand(
 		return s.handleRemove(guildID, userID, kind, value)
 	case "list":
 		return s.handleList(guildID, userID)
+	case "countries":
+		return s.handleCountries()
 	default:
 		return "", fmt.Errorf("unknown action %q", action)
 	}
+}
+
+// handleCountries lists the country codes available to subscribe to.
+func (s Service) handleCountries() (string, error) {
+	if s.countries == nil {
+		return "The country list is unavailable.", nil
+	}
+	all, err := s.countries.ListCountries()
+	if err != nil {
+		return "", fmt.Errorf("list countries: %w", err)
+	}
+	codes := make([]string, 0, len(all))
+	for _, c := range all {
+		if code := countryCode(c); code != "" {
+			codes = append(codes, code)
+		}
+	}
+	sort.Strings(codes)
+	return "Available countries (subscribe by name or 3-letter code):\n" +
+		strings.Join(codes, ", "), nil
 }
 
 func (s Service) handleAdd(guildID, userID, kind, value string) (string, error) {

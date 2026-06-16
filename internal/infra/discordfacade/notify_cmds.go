@@ -6,9 +6,8 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-// SubscriptionCommands is the narrow domain port the notify subcommands depend
-// on. *subscriptions.Service satisfies it structurally, keeping the domain
-// package free of any discordfacade dependency.
+// SubscriptionCommands is satisfied structurally by *subscriptions.Service so
+// the domain package carries no discordfacade dependency.
 type SubscriptionCommands interface {
 	HandleCommand(
 		action, guildID, userID, kind, value string,
@@ -16,9 +15,10 @@ type SubscriptionCommands interface {
 }
 
 const (
-	actionAdd    = "add"
-	actionRemove = "remove"
-	actionList   = "list"
+	actionAdd       = "add"
+	actionRemove    = "remove"
+	actionList      = "list"
+	actionCountries = "countries"
 
 	optKind    = "kind"
 	optValue   = "value"
@@ -27,7 +27,6 @@ const (
 	kindDisc   = "discipline"
 )
 
-// kindOption / valueOption describe the option schema shared by add and remove.
 func kindOption() *discordgo.ApplicationCommandOption {
 	return &discordgo.ApplicationCommandOption{
 		Type:        discordgo.ApplicationCommandOptionString,
@@ -51,7 +50,6 @@ func valueOption() *discordgo.ApplicationCommandOption {
 	}
 }
 
-// addCmd handles /notify add.
 type addCmd struct{ cmds SubscriptionCommands }
 
 func (c *addCmd) Spec() *discordgo.ApplicationCommandOption {
@@ -75,7 +73,6 @@ func (c *addCmd) Handle(
 	return resp.Send(ctx, reply, true)
 }
 
-// removeCmd handles /notify remove.
 type removeCmd struct{ cmds SubscriptionCommands }
 
 func (c *removeCmd) Spec() *discordgo.ApplicationCommandOption {
@@ -99,7 +96,6 @@ func (c *removeCmd) Handle(
 	return resp.Send(ctx, reply, true)
 }
 
-// listCmd handles /notify list.
 type listCmd struct{ cmds SubscriptionCommands }
 
 func (c *listCmd) Spec() *discordgo.ApplicationCommandOption {
@@ -120,17 +116,34 @@ func (c *listCmd) Handle(
 	return resp.Send(ctx, reply, true)
 }
 
-// AddCmd returns a SubCommand for /notify add.
-//
+type countriesCmd struct{ cmds SubscriptionCommands }
+
+func (c *countriesCmd) Spec() *discordgo.ApplicationCommandOption {
+	return &discordgo.ApplicationCommandOption{
+		Type:        discordgo.ApplicationCommandOptionSubCommand,
+		Name:        actionCountries,
+		Description: "List the countries available to subscribe to",
+	}
+}
+
+func (c *countriesCmd) Handle(
+	ctx context.Context, inv Invocation, _ OptionMap, resp Responder,
+) error {
+	reply, err := c.cmds.HandleCommand(actionCountries, inv.GuildID, inv.UserID, "", "")
+	if err != nil {
+		reply = err.Error()
+	}
+	return resp.Send(ctx, reply, true)
+}
+
 //nolint:ireturn // factory returning consumer interface by design
 func AddCmd(cmds SubscriptionCommands) SubCommand { return &addCmd{cmds: cmds} }
 
-// RemoveCmd returns a SubCommand for /notify remove.
-//
+//nolint:ireturn // factory returning consumer interface by design
+func CountriesCmd(cmds SubscriptionCommands) SubCommand { return &countriesCmd{cmds: cmds} }
+
 //nolint:ireturn // factory returning consumer interface by design
 func RemoveCmd(cmds SubscriptionCommands) SubCommand { return &removeCmd{cmds: cmds} }
 
-// ListCmd returns a SubCommand for /notify list.
-//
 //nolint:ireturn // factory returning consumer interface by design
 func ListCmd(cmds SubscriptionCommands) SubCommand { return &listCmd{cmds: cmds} }
