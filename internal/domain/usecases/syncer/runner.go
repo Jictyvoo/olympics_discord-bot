@@ -10,6 +10,10 @@ import (
 
 const defaultSyncIntervalMinutes = 4
 
+// syncLookbackDays is how many days before today each tick re-syncs, so a
+// fixture whose feed finalizes after its day rolls over still gets picked up.
+const syncLookbackDays = 1
+
 // Runner drives the sync loop: ticks every interval and resolves a Syncer bound
 // to the tick's context (remy.GetWithContext), then calls SyncDay for today.
 // Resolving per tick is what lets each cycle's repository + provider calls honour
@@ -44,13 +48,19 @@ func (r *Runner) Run(ctx context.Context) error {
 }
 
 func (r *Runner) tick(ctx context.Context) {
-	day := time.Now().UTC()
+	now := time.Now().UTC()
 	dailySyncer, err := remy.GetWithContext[*Syncer](r.inj, ctx)
 	if err != nil {
 		slog.Error("syncer: resolve syncer", slog.String("err", err.Error()))
 		return
 	}
-	if err = dailySyncer.SyncDay(day); err != nil {
-		slog.Error("syncer: SyncDay failed", slog.String("err", err.Error()), slog.Time("day", day))
+	from := now.AddDate(0, 0, -syncLookbackDays)
+	if err = dailySyncer.SyncRange(from, now); err != nil {
+		slog.Error(
+			"syncer: SyncRange failed",
+			slog.String("err", err.Error()),
+			slog.Time("from", from),
+			slog.Time("to", now),
+		)
 	}
 }
