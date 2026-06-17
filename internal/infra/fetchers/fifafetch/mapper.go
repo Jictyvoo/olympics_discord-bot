@@ -13,9 +13,13 @@ const (
 	statusLive      = 3
 )
 
-// footballMatchDuration covers 90 minutes of play plus a 15-minute halftime; the
-// feed carries no kickoff end, so fixtures derive their end from the start.
+// footballMatchDuration is 90 min play plus 15 min halftime; the feed carries no
+// kickoff end, so fixtures derive their end from the start.
 const footballMatchDuration = 105 * time.Minute
+
+// footballCompletionGrace covers stoppage and extra time before a match the feed
+// never finalizes is treated as finished.
+const footballCompletionGrace = 60 * time.Minute
 
 // mappedMatches is the relational chain produced from a matches response,
 // deduped by external key.
@@ -60,7 +64,12 @@ type seasonMeta struct {
 	endsOn   time.Time
 }
 
-func mapMatches(resp apiMatchesResponse, lang string, season seasonMeta) mappedMatches {
+func mapMatches(
+	resp apiMatchesResponse,
+	lang string,
+	season seasonMeta,
+	now time.Time,
+) mappedMatches {
 	b := newMatchBuilder()
 	for _, m := range resp.Results {
 		// Knockout slots are published without teams; skip until both sides exist.
@@ -73,6 +82,10 @@ func mapMatches(resp apiMatchesResponse, lang string, season seasonMeta) mappedM
 		fixParts := b.emitParticipants(m, lang)
 
 		startsAt := m.Date.UTC()
+		endsAt := startsAt.Add(footballMatchDuration)
+		status := eventcore.CompleteByEndTime(
+			mapStatus(m.MatchStatus), endsAt, now, footballCompletionGrace,
+		)
 		f := eventcore.Fixture{
 			ID:      eventcore.NewID(eventcore.ProviderFIFA, m.IdMatch),
 			Ext:     eventcore.ExternalID{Provider: eventcore.ProviderFIFA, Key: m.IdMatch},
@@ -82,8 +95,8 @@ func mapMatches(resp apiMatchesResponse, lang string, season seasonMeta) mappedM
 			Name: localized(m.Home.TeamName, lang) + " vs " +
 				localized(m.Away.TeamName, lang),
 			StartsAt:     startsAt,
-			EndsAt:       startsAt.Add(footballMatchDuration),
-			Status:       mapStatus(m.MatchStatus),
+			EndsAt:       endsAt,
+			Status:       status,
 			Participants: fixParts,
 		}
 

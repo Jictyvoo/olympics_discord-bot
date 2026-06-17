@@ -65,7 +65,7 @@ func (p Provider) SyncFixturesByDate(
 	}
 
 	season := p.fetchSeason(ctx, day)
-	mapped := mapMatches(resp, p.lang, season)
+	mapped := mapMatches(resp, p.lang, season, time.Now().UTC())
 	standings, stErr := p.fetchStandings(ctx, mapped.stageKeys)
 
 	delta := eventcore.SyncDelta{

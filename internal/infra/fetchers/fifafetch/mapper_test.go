@@ -42,7 +42,7 @@ func TestMapMatches_DrawNoResultsUntilFinished(t *testing.T) {
 		},
 	}}
 
-	mapped := mapMatches(resp, "en", seasonMeta{})
+	mapped := mapMatches(resp, "en", seasonMeta{}, mustTime("2026-06-20T18:30:00Z"))
 
 	if len(mapped.fixtures) != 2 {
 		t.Fatalf("expected 2 fixtures; got %d", len(mapped.fixtures))
@@ -71,6 +71,46 @@ func TestMapMatches_DrawNoResultsUntilFinished(t *testing.T) {
 	}
 }
 
+func TestMapMatches_CompletesLiveAfterGrace(t *testing.T) {
+	match := apiMatch{
+		IdMatch:       "m-live",
+		IdCompetition: "17",
+		IdSeason:      "285023",
+		IdStage:       "s1",
+		Date:          mustTime("2026-06-18T22:00:00Z"),
+		Home:          apiTeam{IdTeam: "CA", Abbreviation: "CA", Gender: 1},
+		Away:          apiTeam{IdTeam: "QA", Abbreviation: "QA", Gender: 1},
+		HomeTeamScore: new(2),
+		AwayTeamScore: new(1),
+		Winner:        "CA",
+		MatchStatus:   statusLive,
+	}
+	resp := apiMatchesResponse{Results: []apiMatch{match}}
+
+	// Ends at 23:45; grace expires at 00:45 next day.
+	withinGrace := mapMatches(resp, "en", seasonMeta{}, mustTime("2026-06-19T00:30:00Z"))
+	if len(withinGrace.fixtures) != 1 {
+		t.Fatalf("expected 1 fixture; got %d", len(withinGrace.fixtures))
+	}
+	if got := withinGrace.fixtures[0].Status; got != eventcore.FixtureLive {
+		t.Errorf("within grace: status = %q; want live", got)
+	}
+	if len(withinGrace.results) != 0 {
+		t.Errorf("within grace: expected no results; got %d", len(withinGrace.results))
+	}
+
+	afterGrace := mapMatches(resp, "en", seasonMeta{}, mustTime("2026-06-19T01:00:00Z"))
+	if got := afterGrace.fixtures[0].Status; got != eventcore.FixtureFinished {
+		t.Errorf("after grace: status = %q; want finished", got)
+	}
+	if len(afterGrace.results) != 2 {
+		t.Errorf("after grace: expected 2 results; got %d", len(afterGrace.results))
+	}
+	if withinGrace.fixtures[0].Checksum == afterGrace.fixtures[0].Checksum {
+		t.Error("checksum did not change when the fixture completed")
+	}
+}
+
 func TestMapMatches_SkipsPlaceholderFixtures(t *testing.T) {
 	resp := apiMatchesResponse{Results: []apiMatch{
 		{
@@ -94,7 +134,7 @@ func TestMapMatches_SkipsPlaceholderFixtures(t *testing.T) {
 		},
 	}}
 
-	mapped := mapMatches(resp, "en", seasonMeta{})
+	mapped := mapMatches(resp, "en", seasonMeta{}, mustTime("2026-06-20T18:30:00Z"))
 
 	if len(mapped.fixtures) != 1 {
 		t.Fatalf("expected only the well-defined fixture; got %d", len(mapped.fixtures))
