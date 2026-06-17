@@ -15,10 +15,10 @@ func (Markdown) Render(view FixtureView) string {
 	fmt.Fprintf(&b, "Status: %s\n", fixture.Status)
 	fmt.Fprintf(&b, "Start: %s\n", DiscordTimestamp(fixture.StartsAt))
 	fmt.Fprintf(&b, "End: %s\n", DiscordTimestamp(fixture.EndsAt))
-	if len(view.Participants) > 0 {
+	if len(view.Competitors) > 0 {
 		b.WriteString("Participants:")
-		for _, p := range view.Participants {
-			fmt.Fprintf(&b, "\n- %s", p.Name)
+		for _, c := range view.Competitors {
+			fmt.Fprintf(&b, "\n- %s", c.Participant.Name)
 		}
 	} else if len(fixture.Participants) > 0 {
 		b.WriteString("Participants:")

@@ -2,6 +2,7 @@ package render
 
 import (
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -58,10 +59,27 @@ var disciplineIconPerCode = map[string]string{
 	"VBV": ":volleyball: :beach:",
 }
 
+// disciplineIconPerName maps a discipline display name to its icon, for
+// providers (e.g. FIFA) whose competition code is not an Olympics discipline code.
+var disciplineIconPerName = map[string]string{
+	"football": ":soccer:",
+	"futebol":  ":soccer:",
+	"fútbol":   ":soccer:",
+	"futbol":   ":soccer:",
+	"fußball":  ":soccer:",
+	"calcio":   ":soccer:",
+}
+
 // DisciplineIcon returns the Discord emoji shortcode for an Olympics discipline
 // code, or an empty string when the code is unknown.
 func DisciplineIcon(code string) string {
 	return disciplineIconPerCode[code]
+}
+
+// DisciplineIconByName returns the icon for a discipline display name (e.g.
+// "Futebol"), or an empty string when the name is unknown.
+func DisciplineIconByName(name string) string {
+	return disciplineIconPerName[strings.ToLower(name)]
 }
 
 // DiscordTimestamp renders a time as a Discord relative-timestamp markdown token.

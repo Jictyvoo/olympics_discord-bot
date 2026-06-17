@@ -26,9 +26,9 @@ func TestMarkdownRender(t *testing.T) {
 					StartsAt: start,
 					EndsAt:   end,
 				},
-				Participants: []eventcore.Participant{
-					{Name: "Usain Bolt"},
-					{Name: "Carl Lewis"},
+				Competitors: []eventcore.FixtureCompetitor{
+					{Participant: eventcore.Participant{Name: "Usain Bolt"}},
+					{Participant: eventcore.Participant{Name: "Carl Lewis"}},
 				},
 			},
 			wantSubstrs: []string{
