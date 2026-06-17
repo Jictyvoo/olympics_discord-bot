@@ -26,6 +26,15 @@ func (s FixtureStatus) Valid() bool {
 	return false
 }
 
+// CompleteByEndTime forces a fixture to finished once its end is past by grace,
+// so a feed that never reports completion still stops showing it as live.
+func CompleteByEndTime(s FixtureStatus, endsAt, now time.Time, grace time.Duration) FixtureStatus {
+	if (s == FixtureLive || s == FixtureScheduled) && now.After(endsAt.Add(grace)) {
+		return FixtureFinished
+	}
+	return s
+}
+
 type FixtureParticipant struct {
 	ParticipantID CanonicalID
 	Role          string // provider-defined, e.g. "home", "away", "athlete"
@@ -45,16 +54,15 @@ type Fixture struct {
 	Participants []FixtureParticipant
 }
 
-// ComputeChecksum returns the fixture-only checksum (no results). Equivalent to
-// ComputeChecksumWith(nil); kept for call sites that have no results to hash.
+// ComputeChecksum returns the fixture-only checksum, for call sites with no
+// results to hash.
 func (f Fixture) ComputeChecksum() string {
 	return f.ComputeChecksumWith(nil)
 }
 
-// ComputeChecksumWith returns a stable hex-encoded SHA-256 over the fixture's
-// fields and its results: the data that, when changed, should trigger a
-// re-notification or re-sync. Participants and results are sorted first so
-// upstream ordering can never churn the checksum. The receiver is not modified.
+// ComputeChecksumWith returns a stable SHA-256 over the fixture and its results,
+// gating re-notification. Participants and results are sorted first so upstream
+// ordering can never churn the checksum.
 func (f Fixture) ComputeChecksumWith(results []Result) string {
 	type stableResult struct {
 		ParticipantID string
