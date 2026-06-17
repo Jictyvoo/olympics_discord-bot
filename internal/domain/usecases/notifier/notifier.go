@@ -3,9 +3,7 @@ package notifier
 import (
 	"database/sql"
 	"errors"
-	"fmt"
 	"log/slog"
-	"strings"
 	"time"
 
 	"github.com/jictyvoo/olhojogo/internal/domain/eventcore"
@@ -84,7 +82,7 @@ func (n *Notifier) NotifyPending() error {
 
 	var errs []error
 	for _, f := range candidates {
-		if err := n.evaluate(f); err != nil {
+		if err = n.evaluate(f); err != nil {
 			errs = append(errs, err)
 		}
 	}
@@ -132,88 +130,6 @@ func (n *Notifier) evaluate(f eventcore.Fixture) error {
 	return n.send(f, checksum, content)
 }
 
-// compose appends the @mention line after the body so the ping reads as a footer.
-func (n *Notifier) compose(f eventcore.Fixture) (string, error) {
-	view := n.buildView(f)
-	content := n.renderer.Render(view)
-	suffix, err := n.mentionSuffix(view)
-	if err != nil {
-		return "", err
-	}
-	if suffix != "" {
-		content = strings.TrimRight(content, "\n") + "\n" + suffix
-	}
-	return content, nil
-}
-
-// withinWindow reports whether the fixture's start and end both fall close
-// enough to now to be worth notifying (mirrors the legacy allowed-time-diff).
-func (n *Notifier) withinWindow(f eventcore.Fixture) bool {
-	now := time.Now()
-	startDiff := absDuration(f.StartsAt.Sub(now))
-	endDiff := absDuration(f.EndsAt.Sub(now))
-	return startDiff+endDiff <= 2*n.window
-}
-
-// recordIneligible persists a terminal status for a fixture that fell outside
-// the window. Future fixtures simply wait; only well-past ones are recorded as
-// skipped (no prior record) or cancelled (a prior record exists).
-func (n *Notifier) recordIneligible(
-	f eventcore.Fixture,
-	checksum string,
-	existing eventcore.Notification,
-) error {
-	if !f.EndsAt.Before(time.Now().Add(-n.window / 2)) {
-		return nil
-	}
-	status := eventcore.NotificationSkipped
-	if existing.Status != "" {
-		status = eventcore.NotificationCancelled
-	}
-	return n.notifs.UpsertNotification(eventcore.Notification{
-		ID:        idgen.NewV7(),
-		AlertID:   f.ID,
-		ChannelID: n.channelID,
-		Status:    status,
-		Checksum:  checksum,
-	})
-}
-
-func absDuration(d time.Duration) time.Duration {
-	if d < 0 {
-		return -d
-	}
-	return d
-}
-
-// mentionSuffix resolves the subscribers to @mention for the fixture's facts and
-// renders them as a "<@id> <@id>" line, or "" when there are no mentions.
-func (n *Notifier) mentionSuffix(
-	view render.FixtureView,
-) (string, error) {
-	if n.mentions == nil {
-		return "", nil
-	}
-	countryCodes := make([]string, 0, len(view.Competitors))
-	for _, c := range view.Competitors {
-		if c.Participant.CountryISO != "" {
-			countryCodes = append(countryCodes, c.Participant.CountryISO)
-		}
-	}
-	users, err := n.mentions.MentionsFor(n.guildID, countryCodes, view.Context.Competition.Code)
-	if err != nil {
-		return "", err
-	}
-	if len(users) == 0 {
-		return "", nil
-	}
-	parts := make([]string, len(users))
-	for i, id := range users {
-		parts[i] = fmt.Sprintf("<@%s>", id)
-	}
-	return strings.Join(parts, " "), nil
-}
-
 // edit updates an already-sent message in place and records the new checksum,
 // so a fixture's notification evolves from scheduled to finished as one message.
 func (n *Notifier) edit(
@@ -243,8 +159,6 @@ func (n *Notifier) edit(
 	return nil
 }
 
-// send dispatches the fixture notification to the configured channel, deduping
-// per checksum and recording the notification lifecycle.
 func (n *Notifier) send(f eventcore.Fixture, checksum, content string) error {
 	// Write a pending row before dispatching so a crash doesn't cause infinite retries.
 	notification := eventcore.Notification{
@@ -277,35 +191,4 @@ func (n *Notifier) send(f eventcore.Fixture, checksum, content string) error {
 		slog.Error("notifier: update sent status", slog.String("err", err.Error()))
 	}
 	return nil
-}
-
-// buildView assembles the render aggregate for a fixture. Enrichment reads are
-// best-effort: a failure is logged and the view degrades gracefully rather than
-// blocking the notification, whose essential payload is the fixture itself.
-func (n *Notifier) buildView(f eventcore.Fixture) render.FixtureView {
-	view := render.FixtureView{Fixture: f}
-
-	context, err := n.context.GetFixtureContext(f.ID)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		slog.Warn(
-			"notifier: load context",
-			slog.String("fixture", f.ID.String()),
-			slog.String("err", err.Error()),
-		)
-	} else {
-		view.Context = context
-	}
-
-	competitors, err := n.competitors.ListFixtureCompetitors(f.ID)
-	if err != nil {
-		slog.Warn(
-			"notifier: load competitors",
-			slog.String("fixture", f.ID.String()),
-			slog.String("err", err.Error()),
-		)
-	} else {
-		view.Competitors = competitors
-	}
-
-	return view
 }

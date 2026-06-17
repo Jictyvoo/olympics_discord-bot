@@ -116,3 +116,54 @@ func TestNotifier_DedupLookupError_Propagates(t *testing.T) {
 		t.Fatalf("got %v, want %v", err, want)
 	}
 }
+
+func TestNotifier_OutOfWindow_RecordsSkipped(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	f := eventcore.Fixture{
+		ID:       eventcore.NewID(eventcore.ProviderOlympics, "old"),
+		StartsAt: time.Now().Add(-20 * time.Hour),
+		EndsAt:   time.Now().Add(-19 * time.Hour),
+		Status:   eventcore.FixtureFinished,
+		Checksum: "old",
+	}
+
+	repo := NewMockNotificationRepo(ctrl)
+	noPriorSent(repo)
+	repo.EXPECT().GetNotificationByChecksum("old").Return(eventcore.Notification{}, sql.ErrNoRows)
+	var got eventcore.Notification
+	repo.EXPECT().
+		UpsertNotification(gomock.Any()).
+		Do(func(n eventcore.Notification) { got = n }).
+		Return(nil)
+
+	disp := NewMockDispatcher(ctrl) // no Send expected
+	n := newTestNotifier(
+		ctrl,
+		NewMockFixtureReader(ctrl),
+		repo,
+		disp,
+		NewMockMentionResolver(ctrl),
+		defaultChan,
+	)
+
+	n.On(f)
+	if got.Status != eventcore.NotificationSkipped {
+		t.Fatalf("want skipped, got %s", got.Status)
+	}
+}
+
+func TestNotifier_WithinWindow_Boundary(t *testing.T) {
+	n := &Notifier{window: time.Hour}
+	now := time.Now()
+
+	// startDiff+endDiff == 0 <= 2*window -> eligible.
+	inside := eventcore.Fixture{StartsAt: now, EndsAt: now}
+	if !n.withinWindow(inside) {
+		t.Error("fixture at now should be within window")
+	}
+	// startDiff+endDiff == 4h > 2*window (2h) -> ineligible.
+	outside := eventcore.Fixture{StartsAt: now.Add(2 * time.Hour), EndsAt: now.Add(2 * time.Hour)}
+	if n.withinWindow(outside) {
+		t.Error("fixture 2h out should be outside window")
+	}
+}

@@ -302,8 +302,6 @@ func TestNotifier_NotifyPending_FixtureReaderError(t *testing.T) {
 	}
 }
 
-// TestNotifier_NoChannel_Skips verifies that with no configured channel nothing
-// is dispatched and no dedup lookup happens.
 func TestNotifier_NoChannel_Skips(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	f := mkFixture("none")
@@ -324,46 +322,6 @@ func TestNotifier_NoChannel_Skips(t *testing.T) {
 	}
 }
 
-// TestNotifier_OutOfWindow_RecordsSkipped verifies a fixture that ended well
-// outside the window is recorded as skipped and never dispatched.
-func TestNotifier_OutOfWindow_RecordsSkipped(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	f := eventcore.Fixture{
-		ID:       eventcore.NewID(eventcore.ProviderOlympics, "old"),
-		StartsAt: time.Now().Add(-20 * time.Hour),
-		EndsAt:   time.Now().Add(-19 * time.Hour),
-		Status:   eventcore.FixtureFinished,
-		Checksum: "old",
-	}
-
-	repo := NewMockNotificationRepo(ctrl)
-	noPriorSent(repo)
-	repo.EXPECT().GetNotificationByChecksum("old").Return(eventcore.Notification{}, sql.ErrNoRows)
-	var got eventcore.Notification
-	repo.EXPECT().
-		UpsertNotification(gomock.Any()).
-		Do(func(n eventcore.Notification) { got = n }).
-		Return(nil)
-
-	disp := NewMockDispatcher(ctrl) // no Send expected
-	n := newTestNotifier(
-		ctrl,
-		NewMockFixtureReader(ctrl),
-		repo,
-		disp,
-		NewMockMentionResolver(ctrl),
-		defaultChan,
-	)
-
-	n.On(f)
-	if got.Status != eventcore.NotificationSkipped {
-		t.Fatalf("want skipped, got %s", got.Status)
-	}
-}
-
-// TestNotifier_EditsInPlaceOnChange verifies that when a fixture already has a
-// sent message and its checksum changed, the existing message is edited rather
-// than a new one posted.
 func TestNotifier_EditsInPlaceOnChange(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	f := mkFixture("new")
@@ -411,8 +369,6 @@ func TestNotifier_EditsInPlaceOnChange(t *testing.T) {
 	}
 }
 
-// TestNotifier_NoOpWhenUnchanged verifies that an already-sent message whose
-// checksum is unchanged triggers neither an edit nor a new send.
 func TestNotifier_NoOpWhenUnchanged(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	f := mkFixture("same")

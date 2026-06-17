@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"testing"
-	"time"
 
 	"go.uber.org/mock/gomock"
 
@@ -76,21 +75,5 @@ func TestNotifier_MentionResolverError_Propagates(t *testing.T) {
 
 	if err := n.NotifyPending(); err == nil {
 		t.Fatal("expected mention-resolver error to propagate")
-	}
-}
-
-func TestNotifier_WithinWindow_Boundary(t *testing.T) {
-	n := &Notifier{window: time.Hour}
-	now := time.Now()
-
-	// startDiff+endDiff == 0 <= 2*window -> eligible.
-	inside := eventcore.Fixture{StartsAt: now, EndsAt: now}
-	if !n.withinWindow(inside) {
-		t.Error("fixture at now should be within window")
-	}
-	// startDiff+endDiff == 4h > 2*window (2h) -> ineligible.
-	outside := eventcore.Fixture{StartsAt: now.Add(2 * time.Hour), EndsAt: now.Add(2 * time.Hour)}
-	if n.withinWindow(outside) {
-		t.Error("fixture 2h out should be outside window")
 	}
 }
