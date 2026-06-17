@@ -4,11 +4,14 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/jictyvoo/olhojogo/pkg/strutil"
 )
 
 const (
 	gymnasticsIcon = ":person_doing_cartwheel:"
 	athleticsIcon  = ":athletic_shoe:"
+	soccerIcon     = ":soccer:"
 )
 
 var disciplineIconPerCode = map[string]string{
@@ -27,7 +30,7 @@ var disciplineIconPerCode = map[string]string{
 	"MTB": ":person_mountain_biking:",
 	"CLB": ":person_climbing:",
 	"FEN": ":person_fencing:",
-	"FBL": ":soccer:",
+	"FBL": soccerIcon,
 	"GAR": gymnasticsIcon,
 	"GTR": gymnasticsIcon,
 	"GRY": gymnasticsIcon,
@@ -59,27 +62,22 @@ var disciplineIconPerCode = map[string]string{
 	"VBV": ":volleyball: :beach:",
 }
 
-// disciplineIconPerName maps a discipline display name to its icon, for
-// providers (e.g. FIFA) whose competition code is not an Olympics discipline code.
+// disciplineIconPerName maps a diacritic-folded discipline name to its icon, for
+// providers whose competition code is not an Olympics discipline code.
 var disciplineIconPerName = map[string]string{
-	"football": ":soccer:",
-	"futebol":  ":soccer:",
-	"fútbol":   ":soccer:",
-	"futbol":   ":soccer:",
-	"fußball":  ":soccer:",
-	"calcio":   ":soccer:",
+	"football": soccerIcon,
+	"futebol":  soccerIcon,
+	"futbol":   soccerIcon,
+	"fußball":  soccerIcon,
+	"calcio":   soccerIcon,
 }
 
-// DisciplineIcon returns the Discord emoji shortcode for an Olympics discipline
-// code, or an empty string when the code is unknown.
 func DisciplineIcon(code string) string {
 	return disciplineIconPerCode[code]
 }
 
-// DisciplineIconByName returns the icon for a discipline display name (e.g.
-// "Futebol"), or an empty string when the name is unknown.
 func DisciplineIconByName(name string) string {
-	return disciplineIconPerName[strings.ToLower(name)]
+	return disciplineIconPerName[strings.ToLower(strutil.FoldDiacritics(name))]
 }
 
 // DiscordTimestamp renders a time as a Discord relative-timestamp markdown token.
