@@ -8,7 +8,6 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-// ScheduledEventInput carries the data needed to create or update a Discord scheduled event.
 type ScheduledEventInput struct {
 	Name        string
 	Description string
@@ -18,8 +17,7 @@ type ScheduledEventInput struct {
 	Location    string
 }
 
-// Client wraps bwmarrin/discordgo for the operations we actually use.
-// Callers declare their own narrower interfaces over these methods.
+// Client wraps discordgo; callers declare their own narrower interfaces over it.
 type Client struct {
 	session *discordgo.Session
 }
@@ -28,8 +26,7 @@ func New(session *discordgo.Session) *Client {
 	return &Client{session: session}
 }
 
-// ResolveChannel returns the ID of the named text channel in the guild,
-// creating it when it does not already exist.
+// ResolveChannel creates the named text channel when it does not already exist.
 func (c *Client) ResolveChannel(guildID, channelName string) (string, error) {
 	channels, err := c.session.GuildChannels(guildID)
 	if err != nil {
@@ -55,8 +52,16 @@ func (c *Client) Send(channelID, content string) (string, error) {
 	return msg.ID, nil
 }
 
-// InstallRouter wires the router's dispatcher into the session and registers its
-// guild-scoped application command, keeping all discordgo calls in this package.
+// Edit lets a fixture's notification evolve in place instead of reposting.
+func (c *Client) Edit(channelID, messageID, content string) error {
+	if _, err := c.session.ChannelMessageEdit(channelID, messageID, content); err != nil {
+		return fmt.Errorf("discordfacade: edit message: %w", err)
+	}
+	return nil
+}
+
+// InstallRouter wires the dispatcher and registers its guild-scoped command,
+// keeping all discordgo calls inside this package.
 func (c *Client) InstallRouter(r *Router, guildID string) error {
 	c.session.AddHandler(r.Handle)
 	appID := c.session.State.User.ID
