@@ -7,11 +7,16 @@ import (
 )
 
 func Register(inj remy.Injector, guildID string, horizon time.Duration) {
-	remy.RegisterConstructorArgs3(
+	remy.RegisterConstructorArgs4(
 		inj,
 		remy.Factory[*DiscordSync],
-		func(fr FixtureReader, dr DiscordEventRepo, facade ScheduledEventFacade) *DiscordSync {
-			return New(fr, dr, facade, guildID, horizon)
+		func(
+			fr FixtureReader,
+			dr DiscordEventRepo,
+			facade ScheduledEventFacade,
+			vr VenueReader,
+		) *DiscordSync {
+			return New(fr, dr, facade, vr, guildID, horizon)
 		},
 	)
 }

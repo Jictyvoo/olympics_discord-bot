@@ -20,6 +20,7 @@ type DiscordSync struct {
 	fixtures FixtureReader
 	repo     DiscordEventRepo
 	discord  ScheduledEventFacade
+	venues   VenueReader
 	guildID  string
 	horizon  time.Duration // fixtures within this window are managed
 }
@@ -28,6 +29,7 @@ func New(
 	fixtures FixtureReader,
 	repo DiscordEventRepo,
 	discord ScheduledEventFacade,
+	venues VenueReader,
 	guildID string,
 	horizon time.Duration,
 ) *DiscordSync {
@@ -38,6 +40,7 @@ func New(
 		fixtures: fixtures,
 		repo:     repo,
 		discord:  discord,
+		venues:   venues,
 		guildID:  guildID,
 		horizon:  horizon,
 	}
@@ -72,6 +75,33 @@ func (ds *DiscordSync) Run() error {
 	return errors.Join(errs...)
 }
 
+// venueLocation resolves the fixture's venue into a "Name, City" label, or ""
+// when there is no venue or the lookup fails.
+func (ds *DiscordSync) venueLocation(f eventcore.Fixture) string {
+	if ds.venues == nil {
+		return ""
+	}
+	venue, err := ds.venues.GetVenueByFixture(f.ID)
+	if err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			slog.Warn(
+				"discordsync: load venue",
+				slog.String("fixture", f.ID.String()),
+				slog.String("err", err.Error()),
+			)
+		}
+		return ""
+	}
+	switch {
+	case venue.Name != "" && venue.City != "":
+		return venue.Name + ", " + venue.City
+	case venue.Name != "":
+		return venue.Name
+	default:
+		return venue.City
+	}
+}
+
 func (ds *DiscordSync) reconcile(f eventcore.Fixture) error {
 	discordEvent, err := ds.repo.GetDiscordEventByFixture(f.ID, ds.guildID)
 	notFound := errors.Is(err, sql.ErrNoRows)
@@ -79,7 +109,6 @@ func (ds *DiscordSync) reconcile(f eventcore.Fixture) error {
 		return err
 	}
 
-	// Cancel if fixture is cancelled or postponed.
 	if f.Status == eventcore.FixtureCancelled || f.Status == eventcore.FixturePostponed {
 		if !notFound && discordEvent.DiscordEventID != "" {
 			if cancelErr := ds.discord.CancelScheduledEvent(
@@ -103,7 +132,7 @@ func (ds *DiscordSync) reconcile(f eventcore.Fixture) error {
 		return nil
 	}
 
-	input := buildEventInput(f)
+	input := buildEventInput(f, ds.venueLocation(f))
 
 	if notFound || discordEvent.DiscordEventID == "" {
 		// Adopt an event Discord already has for this fixture (e.g. when the local
@@ -125,7 +154,6 @@ func (ds *DiscordSync) reconcile(f eventcore.Fixture) error {
 		})
 	}
 
-	// Update only if checksum changed.
 	if discordEvent.LastChecksum == f.Checksum {
 		return nil
 	}

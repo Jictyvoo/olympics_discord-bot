@@ -11,6 +11,17 @@ import (
 	"github.com/jictyvoo/olhojogo/internal/infra/discordfacade"
 )
 
+// nilVenues returns a venue reader that reports no venue, so the scheduled event
+// falls back to its default location.
+func nilVenues(ctrl *gomock.Controller) *MockVenueReader {
+	vr := NewMockVenueReader(ctrl)
+	vr.EXPECT().
+		GetVenueByFixture(gomock.Any()).
+		Return(eventcore.Venue{}, sql.ErrNoRows).
+		AnyTimes()
+	return vr
+}
+
 func mkFixture(checksum string, status eventcore.FixtureStatus) eventcore.Fixture {
 	id := eventcore.NewID(eventcore.ProviderOlympics, "fx-"+checksum)
 	return eventcore.Fixture{
@@ -48,12 +59,49 @@ func TestDiscordSync_CreatesWhenMissing(t *testing.T) {
 		CreateScheduledEvent(gomock.Any(), gomock.Any()).
 		Return("discord-1", nil)
 
-	ds := New(reader, repo, fac, "guild", 0)
+	ds := New(reader, repo, fac, nilVenues(ctrl), "guild", 0)
 	if err := ds.Run(); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	if upserted.DiscordEventID != "discord-1" {
 		t.Fatalf("expected upsert with discord-1; got %+v", upserted)
+	}
+}
+
+func TestDiscordSync_SetsVenueLocation(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	f := mkFixture("venue", eventcore.FixtureScheduled)
+
+	reader := NewMockFixtureReader(ctrl)
+	reader.EXPECT().
+		ListFixturesStartingBefore(gomock.Any()).
+		Return([]eventcore.Fixture{f}, nil)
+
+	repo := NewMockDiscordEventRepo(ctrl)
+	repo.EXPECT().
+		GetDiscordEventByFixture(f.ID, gomock.Any()).
+		Return(eventcore.DiscordEvent{}, sql.ErrNoRows)
+	repo.EXPECT().UpsertDiscordEvent(gomock.Any()).Return(nil)
+
+	venues := NewMockVenueReader(ctrl)
+	venues.EXPECT().
+		GetVenueByFixture(f.ID).
+		Return(eventcore.Venue{Name: "Stade de France", City: "Paris"}, nil)
+
+	fac := NewMockScheduledEventFacade(ctrl)
+	fac.EXPECT().ListScheduledEvents(gomock.Any()).Return(nil, nil)
+	var gotLocation string
+	fac.EXPECT().
+		CreateScheduledEvent(gomock.Any(), gomock.Any()).
+		Do(func(_ string, in discordfacade.ScheduledEventInput) { gotLocation = in.Location }).
+		Return("discord-1", nil)
+
+	ds := New(reader, repo, fac, venues, "guild", 0)
+	if err := ds.Run(); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if gotLocation != "Stade de France, Paris" {
+		t.Fatalf("event location = %q, want venue name and city", gotLocation)
 	}
 }
 
@@ -79,7 +127,7 @@ func TestDiscordSync_AdoptsExistingEventInsteadOfCreating(t *testing.T) {
 	// Discord already has an event for this fixture (same description) -> adopt it.
 	existing := discordfacade.ScheduledEvent{
 		ID:          "evt-existing",
-		Description: buildEventInput(f).Description,
+		Description: buildEventInput(f, "").Description,
 	}
 	fac := NewMockScheduledEventFacade(ctrl)
 	fac.EXPECT().
@@ -87,7 +135,7 @@ func TestDiscordSync_AdoptsExistingEventInsteadOfCreating(t *testing.T) {
 		Return([]discordfacade.ScheduledEvent{existing}, nil)
 	// CreateScheduledEvent must NOT be called: no EXPECT() => any call fails.
 
-	ds := New(reader, repo, fac, "guild", 0)
+	ds := New(reader, repo, fac, nilVenues(ctrl), "guild", 0)
 	if err := ds.Run(); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -126,7 +174,7 @@ func TestDiscordSync_UpdatesWhenChecksumChanged(t *testing.T) {
 		}).
 		Return(nil)
 
-	ds := New(reader, repo, fac, "guild", 0)
+	ds := New(reader, repo, fac, nilVenues(ctrl), "guild", 0)
 	if err := ds.Run(); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -158,7 +206,7 @@ func TestDiscordSync_SkipsWhenChecksumUnchanged(t *testing.T) {
 	// will fail the test if any method is invoked.
 	fac := NewMockScheduledEventFacade(ctrl)
 
-	ds := New(reader, repo, fac, "guild", 0)
+	ds := New(reader, repo, fac, nilVenues(ctrl), "guild", 0)
 	if err := ds.Run(); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -179,7 +227,7 @@ func TestDiscordSync_SkipsPastFixture(t *testing.T) {
 	// No facade or upsert calls: Discord cannot schedule events in the past.
 	fac := NewMockScheduledEventFacade(ctrl)
 
-	ds := New(NewMockFixtureReader(ctrl), repo, fac, "guild", 0)
+	ds := New(NewMockFixtureReader(ctrl), repo, fac, nilVenues(ctrl), "guild", 0)
 	ds.On(f)
 }
 
@@ -211,7 +259,7 @@ func TestDiscordSync_CancelsWhenFixtureCancelled(t *testing.T) {
 		CancelScheduledEvent(gomock.Any(), gomock.Any()).
 		Return(nil)
 
-	ds := New(reader, repo, fac, "guild", 0)
+	ds := New(reader, repo, fac, nilVenues(ctrl), "guild", 0)
 	if err := ds.Run(); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -226,6 +274,7 @@ func TestDiscordSync_DefaultHorizon(t *testing.T) {
 		NewMockFixtureReader(ctrl),
 		NewMockDiscordEventRepo(ctrl),
 		NewMockScheduledEventFacade(ctrl),
+		nilVenues(ctrl),
 		"g", 0,
 	)
 	if ds.horizon == 0 {

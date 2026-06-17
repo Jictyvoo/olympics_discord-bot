@@ -124,6 +124,45 @@ func (mr *MockDiscordEventRepoMockRecorder) UpsertDiscordEvent(de any) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpsertDiscordEvent", reflect.TypeOf((*MockDiscordEventRepo)(nil).UpsertDiscordEvent), de)
 }
 
+// MockVenueReader is a mock of VenueReader interface.
+type MockVenueReader struct {
+	ctrl     *gomock.Controller
+	recorder *MockVenueReaderMockRecorder
+	isgomock struct{}
+}
+
+// MockVenueReaderMockRecorder is the mock recorder for MockVenueReader.
+type MockVenueReaderMockRecorder struct {
+	mock *MockVenueReader
+}
+
+// NewMockVenueReader creates a new mock instance.
+func NewMockVenueReader(ctrl *gomock.Controller) *MockVenueReader {
+	mock := &MockVenueReader{ctrl: ctrl}
+	mock.recorder = &MockVenueReaderMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockVenueReader) EXPECT() *MockVenueReaderMockRecorder {
+	return m.recorder
+}
+
+// GetVenueByFixture mocks base method.
+func (m *MockVenueReader) GetVenueByFixture(fixtureID eventcore.CanonicalID) (eventcore.Venue, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetVenueByFixture", fixtureID)
+	ret0, _ := ret[0].(eventcore.Venue)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetVenueByFixture indicates an expected call of GetVenueByFixture.
+func (mr *MockVenueReaderMockRecorder) GetVenueByFixture(fixtureID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVenueByFixture", reflect.TypeOf((*MockVenueReader)(nil).GetVenueByFixture), fixtureID)
+}
+
 // MockScheduledEventFacade is a mock of ScheduledEventFacade interface.
 type MockScheduledEventFacade struct {
 	ctrl     *gomock.Controller
@@ -162,21 +201,6 @@ func (mr *MockScheduledEventFacadeMockRecorder) CancelScheduledEvent(guildID, ev
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CancelScheduledEvent", reflect.TypeOf((*MockScheduledEventFacade)(nil).CancelScheduledEvent), guildID, eventID)
 }
 
-// ListScheduledEvents mocks base method.
-func (m *MockScheduledEventFacade) ListScheduledEvents(guildID string) ([]discordfacade.ScheduledEvent, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListScheduledEvents", guildID)
-	ret0, _ := ret[0].([]discordfacade.ScheduledEvent)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ListScheduledEvents indicates an expected call of ListScheduledEvents.
-func (mr *MockScheduledEventFacadeMockRecorder) ListScheduledEvents(guildID any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListScheduledEvents", reflect.TypeOf((*MockScheduledEventFacade)(nil).ListScheduledEvents), guildID)
-}
-
 // CreateScheduledEvent mocks base method.
 func (m *MockScheduledEventFacade) CreateScheduledEvent(guildID string, in discordfacade.ScheduledEventInput) (string, error) {
 	m.ctrl.T.Helper()
@@ -190,6 +214,21 @@ func (m *MockScheduledEventFacade) CreateScheduledEvent(guildID string, in disco
 func (mr *MockScheduledEventFacadeMockRecorder) CreateScheduledEvent(guildID, in any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateScheduledEvent", reflect.TypeOf((*MockScheduledEventFacade)(nil).CreateScheduledEvent), guildID, in)
+}
+
+// ListScheduledEvents mocks base method.
+func (m *MockScheduledEventFacade) ListScheduledEvents(guildID string) ([]discordfacade.ScheduledEvent, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListScheduledEvents", guildID)
+	ret0, _ := ret[0].([]discordfacade.ScheduledEvent)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListScheduledEvents indicates an expected call of ListScheduledEvents.
+func (mr *MockScheduledEventFacadeMockRecorder) ListScheduledEvents(guildID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListScheduledEvents", reflect.TypeOf((*MockScheduledEventFacade)(nil).ListScheduledEvents), guildID)
 }
 
 // UpdateScheduledEvent mocks base method.

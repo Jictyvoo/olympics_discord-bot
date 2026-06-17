@@ -28,6 +28,12 @@ type DiscordEventRepo interface {
 	) error
 }
 
+// VenueReader resolves the venue hosting a fixture, used as the scheduled
+// event's location.
+type VenueReader interface {
+	GetVenueByFixture(fixtureID eventcore.CanonicalID) (eventcore.Venue, error)
+}
+
 // ScheduledEventFacade is the subset of discordfacade.Facade used here.
 type ScheduledEventFacade interface {
 	ListScheduledEvents(guildID string) ([]discordfacade.ScheduledEvent, error)
