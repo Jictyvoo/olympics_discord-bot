@@ -29,6 +29,29 @@ func (q *Queries) GetVenue(ctx context.Context, id []byte) (Venue, error) {
 	return i, err
 }
 
+const GetVenueByFixture = `-- name: GetVenueByFixture :one
+SELECT v.id, v.created_at, v.updated_at, v.provider_id, v.external_key, v.name, v.city, v.country_iso
+FROM venues v
+JOIN fixtures f ON f.venue_id = v.id
+WHERE f.id = ? LIMIT 1
+`
+
+func (q *Queries) GetVenueByFixture(ctx context.Context, id []byte) (Venue, error) {
+	row := q.db.QueryRowContext(ctx, GetVenueByFixture, id)
+	var i Venue
+	err := row.Scan(
+		&i.ID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ProviderID,
+		&i.ExternalKey,
+		&i.Name,
+		&i.City,
+		&i.CountryIso,
+	)
+	return i, err
+}
+
 const UpsertVenue = `-- name: UpsertVenue :exec
 INSERT INTO venues (
     id, provider_id, external_key, name, city, country_iso,

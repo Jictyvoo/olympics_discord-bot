@@ -59,6 +59,76 @@ func (q *Queries) GetParticipantByExternalKey(ctx context.Context, arg GetPartic
 	return i, err
 }
 
+const ListFixtureCompetitors = `-- name: ListFixtureCompetitors :many
+SELECT
+    p.id, p.provider_id, p.external_key, p.kind, p.name, p.code, p.country_iso, p.gender,
+    fp.role,
+    COALESCE((
+        SELECT ct.iso2 FROM countries ct
+        WHERE ct.iso3 = p.country_iso OR ct.ioc_code = p.country_iso
+        LIMIT 1
+    ), '') AS country_iso2,
+    r.position, r.score, r.outcome
+FROM fixture_participants fp
+JOIN participants p ON p.id = fp.participant_id
+LEFT JOIN results r ON r.fixture_id = fp.fixture_id AND r.participant_id = p.id
+WHERE fp.fixture_id = ?
+ORDER BY fp.role
+`
+
+type ListFixtureCompetitorsRow struct {
+	ID          []byte         `db:"id"`
+	ProviderID  string         `db:"provider_id"`
+	ExternalKey string         `db:"external_key"`
+	Kind        string         `db:"kind"`
+	Name        string         `db:"name"`
+	Code        sql.NullString `db:"code"`
+	CountryIso  sql.NullString `db:"country_iso"`
+	Gender      sql.NullString `db:"gender"`
+	Role        sql.NullString `db:"role"`
+	CountryIso2 interface{}    `db:"country_iso2"`
+	Position    sql.NullInt64  `db:"position"`
+	Score       sql.NullString `db:"score"`
+	Outcome     sql.NullString `db:"outcome"`
+}
+
+func (q *Queries) ListFixtureCompetitors(ctx context.Context, fixtureID []byte) ([]ListFixtureCompetitorsRow, error) {
+	rows, err := q.db.QueryContext(ctx, ListFixtureCompetitors, fixtureID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListFixtureCompetitorsRow{}
+	for rows.Next() {
+		var i ListFixtureCompetitorsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProviderID,
+			&i.ExternalKey,
+			&i.Kind,
+			&i.Name,
+			&i.Code,
+			&i.CountryIso,
+			&i.Gender,
+			&i.Role,
+			&i.CountryIso2,
+			&i.Position,
+			&i.Score,
+			&i.Outcome,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const ListFixtureParticipants = `-- name: ListFixtureParticipants :many
 SELECT fp.fixture_id, fp.participant_id, fp.role
 FROM fixture_participants fp
@@ -81,47 +151,6 @@ func (q *Queries) ListFixtureParticipants(ctx context.Context, fixtureID []byte)
 	for rows.Next() {
 		var i ListFixtureParticipantsRow
 		if err := rows.Scan(&i.FixtureID, &i.ParticipantID, &i.Role); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const ListParticipantsByFixture = `-- name: ListParticipantsByFixture :many
-SELECT p.id, p.created_at, p.updated_at, p.provider_id, p.external_key, p.kind, p.name, p.code, p.country_iso, p.gender
-FROM participants p
-JOIN fixture_participants fp ON fp.participant_id = p.id
-WHERE fp.fixture_id = ?
-`
-
-func (q *Queries) ListParticipantsByFixture(ctx context.Context, fixtureID []byte) ([]Participant, error) {
-	rows, err := q.db.QueryContext(ctx, ListParticipantsByFixture, fixtureID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []Participant{}
-	for rows.Next() {
-		var i Participant
-		if err := rows.Scan(
-			&i.ID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.ProviderID,
-			&i.ExternalKey,
-			&i.Kind,
-			&i.Name,
-			&i.Code,
-			&i.CountryIso,
-			&i.Gender,
-		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

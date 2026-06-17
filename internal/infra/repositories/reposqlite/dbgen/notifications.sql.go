@@ -9,6 +9,29 @@ import (
 	"context"
 )
 
+const GetLatestSentNotificationByAlert = `-- name: GetLatestSentNotificationByAlert :one
+SELECT id, created_at, updated_at, channel_id, message_id, status, checksum, sent_at, alert_id FROM notifications
+WHERE alert_id = ? AND status = 'sent' AND message_id IS NOT NULL AND message_id <> ''
+ORDER BY created_at DESC LIMIT 1
+`
+
+func (q *Queries) GetLatestSentNotificationByAlert(ctx context.Context, alertID []byte) (Notification, error) {
+	row := q.db.QueryRowContext(ctx, GetLatestSentNotificationByAlert, alertID)
+	var i Notification
+	err := row.Scan(
+		&i.ID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ChannelID,
+		&i.MessageID,
+		&i.Status,
+		&i.Checksum,
+		&i.SentAt,
+		&i.AlertID,
+	)
+	return i, err
+}
+
 const GetNotificationByChecksum = `-- name: GetNotificationByChecksum :one
 SELECT id, created_at, updated_at, channel_id, message_id, status, checksum, sent_at, alert_id FROM notifications WHERE checksum = ? LIMIT 1
 `
@@ -49,43 +72,6 @@ func (q *Queries) GetNotificationByID(ctx context.Context, id []byte) (Notificat
 		&i.AlertID,
 	)
 	return i, err
-}
-
-const ListNotificationsByAlert = `-- name: ListNotificationsByAlert :many
-SELECT id, created_at, updated_at, channel_id, message_id, status, checksum, sent_at, alert_id FROM notifications WHERE alert_id = ? ORDER BY created_at DESC
-`
-
-func (q *Queries) ListNotificationsByAlert(ctx context.Context, alertID []byte) ([]Notification, error) {
-	rows, err := q.db.QueryContext(ctx, ListNotificationsByAlert, alertID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []Notification{}
-	for rows.Next() {
-		var i Notification
-		if err := rows.Scan(
-			&i.ID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.ChannelID,
-			&i.MessageID,
-			&i.Status,
-			&i.Checksum,
-			&i.SentAt,
-			&i.AlertID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const UpdateNotificationStatus = `-- name: UpdateNotificationStatus :exec

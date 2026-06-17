@@ -30,27 +30,41 @@ func (q *Queries) GetCompetition(ctx context.Context, id []byte) (Competition, e
 	return i, err
 }
 
-const GetCompetitionByFixture = `-- name: GetCompetitionByFixture :one
-SELECT c.id, c.created_at, c.updated_at, c.provider_id, c.external_key, c.code, c.name, c.discipline
-FROM competitions c
-JOIN seasons s ON s.competition_id = c.id
-JOIN stages st ON st.season_id = s.id
-JOIN fixtures f ON f.stage_id = st.id
+const GetFixtureContext = `-- name: GetFixtureContext :one
+SELECT
+    c.code        AS competition_code,
+    c.name        AS competition_name,
+    c.discipline  AS discipline,
+    st.name       AS stage_name,
+    st.ord        AS stage_ord,
+    g.name        AS group_name
+FROM fixtures f
+JOIN stages st      ON st.id = f.stage_id
+JOIN seasons s      ON s.id = st.season_id
+JOIN competitions c ON c.id = s.competition_id
+LEFT JOIN ` + "`" + `groups` + "`" + ` g  ON g.id = f.group_id
 WHERE f.id = ? LIMIT 1
 `
 
-func (q *Queries) GetCompetitionByFixture(ctx context.Context, id []byte) (Competition, error) {
-	row := q.db.QueryRowContext(ctx, GetCompetitionByFixture, id)
-	var i Competition
+type GetFixtureContextRow struct {
+	CompetitionCode sql.NullString `db:"competition_code"`
+	CompetitionName string         `db:"competition_name"`
+	Discipline      sql.NullString `db:"discipline"`
+	StageName       string         `db:"stage_name"`
+	StageOrd        int64          `db:"stage_ord"`
+	GroupName       sql.NullString `db:"group_name"`
+}
+
+func (q *Queries) GetFixtureContext(ctx context.Context, id []byte) (GetFixtureContextRow, error) {
+	row := q.db.QueryRowContext(ctx, GetFixtureContext, id)
+	var i GetFixtureContextRow
 	err := row.Scan(
-		&i.ID,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.ProviderID,
-		&i.ExternalKey,
-		&i.Code,
-		&i.Name,
+		&i.CompetitionCode,
+		&i.CompetitionName,
 		&i.Discipline,
+		&i.StageName,
+		&i.StageOrd,
+		&i.GroupName,
 	)
 	return i, err
 }
