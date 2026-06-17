@@ -44,25 +44,39 @@ func (r ParticipantRepo) UpsertFixtureParticipants(
 	return nil
 }
 
-func (r ParticipantRepo) ListParticipantsByFixture(
+// ListFixtureCompetitors returns each participant in a fixture with its role,
+// the ISO2 code resolved from its country, and its result (if any) in one query.
+func (r ParticipantRepo) ListFixtureCompetitors(
 	fixtureID eventcore.CanonicalID,
-) ([]eventcore.Participant, error) {
+) ([]eventcore.FixtureCompetitor, error) {
 	qctx, cancel := r.Ctx()
 	defer cancel()
-	rows, err := r.Queries().ListParticipantsByFixture(qctx, fixtureID.Bytes())
+	rows, err := r.Queries().ListFixtureCompetitors(qctx, fixtureID.Bytes())
 	if err != nil {
 		return nil, err
 	}
-	out := make([]eventcore.Participant, len(rows))
+	out := make([]eventcore.FixtureCompetitor, len(rows))
 	for i, row := range rows {
-		out[i] = eventcore.Participant{
-			ID:         mapper.IDFromBytes(row.ID),
-			Ext:        eventcore.ExternalID{Provider: row.ProviderID, Key: row.ExternalKey},
-			Kind:       eventcore.ParticipantKind(row.Kind),
-			Name:       row.Name,
-			Code:       row.Code.String,
-			CountryISO: row.CountryIso.String,
-			Gender:     row.Gender.String,
+		pid := mapper.IDFromBytes(row.ID)
+		out[i] = eventcore.FixtureCompetitor{
+			Participant: eventcore.Participant{
+				ID:         pid,
+				Ext:        eventcore.ExternalID{Provider: row.ProviderID, Key: row.ExternalKey},
+				Kind:       eventcore.ParticipantKind(row.Kind),
+				Name:       row.Name,
+				Code:       row.Code.String,
+				CountryISO: row.CountryIso.String,
+				Gender:     row.Gender.String,
+			},
+			Role:        row.Role.String,
+			CountryISO2: mapper.NullStr(row.CountryIso2),
+			Result: eventcore.Result{
+				FixtureID:     fixtureID,
+				ParticipantID: pid,
+				Position:      mapper.IntFromNull64(row.Position),
+				Score:         row.Score.String,
+				Outcome:       eventcore.Outcome(row.Outcome.String),
+			},
 		}
 	}
 	return out, nil

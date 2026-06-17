@@ -10,23 +10,26 @@ type CompetitionRepo struct{ *repoMySQL }
 
 func NewCompetitionRepo(base *repoMySQL) CompetitionRepo { return CompetitionRepo{base} }
 
-// GetCompetitionByFixture resolves the competition that owns a fixture by
-// walking fixture -> stage -> season -> competition.
-func (r CompetitionRepo) GetCompetitionByFixture(
+// GetFixtureContext resolves the competition, stage and (optional) group that
+// locate a fixture in a single query.
+func (r CompetitionRepo) GetFixtureContext(
 	fixtureID eventcore.CanonicalID,
-) (eventcore.Competition, error) {
+) (eventcore.FixtureContext, error) {
 	qctx, cancel := r.Ctx()
 	defer cancel()
-	row, err := r.Queries().GetCompetitionByFixture(qctx, fixtureID.Bytes())
+	row, err := r.Queries().GetFixtureContext(qctx, fixtureID.Bytes())
 	if err != nil {
-		return eventcore.Competition{}, err
+		return eventcore.FixtureContext{}, err
 	}
-	return eventcore.Competition{
-		ID:         mapper.IDFromBytes(row.ID),
-		Ext:        eventcore.ExternalID{Provider: row.ProviderID, Key: row.ExternalKey},
-		Code:       row.Code.String,
-		Name:       row.Name,
-		Discipline: row.Discipline.String,
+	return eventcore.FixtureContext{
+		Competition: eventcore.Competition{
+			Code:       row.CompetitionCode.String,
+			Name:       row.CompetitionName,
+			Discipline: row.Discipline.String,
+		},
+		StageName: row.StageName,
+		StageOrd:  int(row.StageOrd),
+		GroupName: row.GroupName.String,
 	}, nil
 }
 

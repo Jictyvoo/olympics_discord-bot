@@ -48,6 +48,20 @@ func (r NotificationRepo) UpdateNotificationStatus(
 	})
 }
 
+// GetLatestSentNotificationByAlert returns the most recent sent notification
+// (carrying a Discord message id) for a fixture, so it can be edited in place.
+func (r NotificationRepo) GetLatestSentNotificationByAlert(
+	alertID eventcore.CanonicalID,
+) (eventcore.Notification, error) {
+	qctx, cancel := r.Ctx()
+	defer cancel()
+	row, err := r.Queries().GetLatestSentNotificationByAlert(qctx, alertID.Bytes())
+	if err != nil {
+		return eventcore.Notification{}, err
+	}
+	return rowToNotification(row), nil
+}
+
 func rowToNotification(row dbgen.Notification) eventcore.Notification {
 	return eventcore.Notification{
 		ID:        mapper.IDFromBytes(row.ID),

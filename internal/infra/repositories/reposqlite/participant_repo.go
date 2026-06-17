@@ -44,30 +44,40 @@ func (r ParticipantRepo) UpsertFixtureParticipants(
 	return nil
 }
 
-func (r ParticipantRepo) ListParticipantsByFixture(
+// ListFixtureCompetitors returns each participant in a fixture with its role,
+// the ISO2 code resolved from its country, and its result (if any) in one query.
+func (r ParticipantRepo) ListFixtureCompetitors(
 	fixtureID eventcore.CanonicalID,
-) ([]eventcore.Participant, error) {
+) ([]eventcore.FixtureCompetitor, error) {
 	qctx, cancel := r.Ctx()
 	defer cancel()
-	rows, err := r.Queries().ListParticipantsByFixture(qctx, fixtureID.Bytes())
+	rows, err := r.Queries().ListFixtureCompetitors(qctx, fixtureID.Bytes())
 	if err != nil {
 		return nil, err
 	}
-	out := make([]eventcore.Participant, len(rows))
+	out := make([]eventcore.FixtureCompetitor, len(rows))
 	for i, row := range rows {
-		out[i] = rowToParticipant(row)
+		pid := mapper.IDFromBytes(row.ID)
+		out[i] = eventcore.FixtureCompetitor{
+			Participant: eventcore.Participant{
+				ID:         pid,
+				Ext:        eventcore.ExternalID{Provider: row.ProviderID, Key: row.ExternalKey},
+				Kind:       eventcore.ParticipantKind(row.Kind),
+				Name:       row.Name,
+				Code:       mapper.NullStr(row.Code),
+				CountryISO: mapper.NullStr(row.CountryIso),
+				Gender:     mapper.NullStr(row.Gender),
+			},
+			Role:        mapper.NullStr(row.Role),
+			CountryISO2: mapper.NullStr(row.CountryIso2),
+			Result: eventcore.Result{
+				FixtureID:     fixtureID,
+				ParticipantID: pid,
+				Position:      mapper.NullInt(row.Position),
+				Score:         mapper.NullStr(row.Score),
+				Outcome:       eventcore.Outcome(mapper.NullStr(row.Outcome)),
+			},
+		}
 	}
 	return out, nil
-}
-
-func rowToParticipant(row dbgen.Participant) eventcore.Participant {
-	return eventcore.Participant{
-		ID:         mapper.IDFromBytes(row.ID),
-		Ext:        eventcore.ExternalID{Provider: row.ProviderID, Key: row.ExternalKey},
-		Kind:       eventcore.ParticipantKind(row.Kind),
-		Name:       row.Name,
-		Code:       mapper.NullStr(row.Code),
-		CountryISO: mapper.NullStr(row.CountryIso),
-		Gender:     mapper.NullStr(row.Gender),
-	}
 }

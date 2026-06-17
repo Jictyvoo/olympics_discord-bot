@@ -26,26 +26,3 @@ func (r ResultRepo) UpsertResult(res eventcore.Result) error {
 		Outcome:       mapper.OptString(string(res.Outcome)),
 	})
 }
-
-func (r ResultRepo) ListResultsByFixture(
-	fixtureID eventcore.CanonicalID,
-) ([]eventcore.Result, error) {
-	qctx, cancel := r.Ctx()
-	defer cancel()
-	rows, err := r.Queries().ListResultsByFixture(qctx, fixtureID.Bytes())
-	if err != nil {
-		return nil, err
-	}
-	out := make([]eventcore.Result, len(rows))
-	for i, row := range rows {
-		out[i] = eventcore.Result{
-			FixtureID:     mapper.IDFromBytes(row.FixtureID),
-			ParticipantID: mapper.IDFromBytes(row.ParticipantID),
-			Position:      mapper.NullInt(row.Position),
-			Score:         mapper.NullStr(row.Score),
-			RawMark:       mapper.NullStr(row.RawMark),
-			Outcome:       eventcore.Outcome(mapper.NullStr(row.Outcome)),
-		}
-	}
-	return out, nil
-}
