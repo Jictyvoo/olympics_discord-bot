@@ -2,7 +2,10 @@ package strutil
 
 import "testing"
 
-const sampleAlfaNum = "abc123"
+const (
+	sampleAlfaNum = "abc123"
+	eszett        = "Fußball"
+)
 
 type equalAlfaNumCase struct {
 	name     string
@@ -57,6 +60,26 @@ func TestEqualAlfaNum(t *testing.T) {
 	}
 
 	runEqualAlfaNumCases(t, tests)
+}
+
+func TestFoldDiacritics(t *testing.T) {
+	tests := []struct {
+		name, in, want string
+	}{
+		{"plain ascii unchanged", "Football", "Football"},
+		{"acute accent, case kept", "Fútbol", "Futbol"},
+		{"portuguese", "Futebol", "Futebol"},
+		{"multiple marks", "ÀÉÎõü", "AEIou"},
+		{"eszett preserved", eszett, eszett},
+		{"empty", "", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := FoldDiacritics(tt.in); got != tt.want {
+				t.Fatalf("FoldDiacritics(%q) = %q, want %q", tt.in, got, tt.want)
+			}
+		})
+	}
 }
 
 func TestEqualAlfaNum_EdgeCases(t *testing.T) {

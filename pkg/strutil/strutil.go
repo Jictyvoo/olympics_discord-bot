@@ -4,7 +4,29 @@ package strutil
 import (
 	"strings"
 	"unicode"
+
+	"golang.org/x/text/runes"
+	"golang.org/x/text/transform"
+	"golang.org/x/text/unicode/norm"
 )
+
+// diacriticFolder decomposes runes and drops the nonspacing marks, folding
+// accented letters to their base form (e.g. "fútbol" -> "futbol").
+var diacriticFolder = transform.Chain(
+	norm.NFD,
+	runes.Remove(runes.In(unicode.Mn)),
+	norm.NFC,
+)
+
+// FoldDiacritics strips diacritics from s, folding accented letters to their
+// base form. Casing is preserved; lowercase at the call site if needed.
+func FoldDiacritics(s string) string {
+	folded, _, err := transform.String(diacriticFolder, s)
+	if err != nil {
+		return s
+	}
+	return folded
+}
 
 // EqualAlfaNum reports whether a and b are equal once non-alphanumeric runes
 // are stripped, comparing case-insensitively.
