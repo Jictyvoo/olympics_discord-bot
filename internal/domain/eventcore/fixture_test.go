@@ -28,6 +28,33 @@ func TestFixtureStatus_Valid(t *testing.T) {
 	}
 }
 
+func TestCompleteByEndTime(t *testing.T) {
+	endsAt := time.Date(2026, 6, 18, 23, 45, 0, 0, time.UTC)
+	grace := time.Hour
+	beforeGrace := endsAt.Add(30 * time.Minute)
+	afterGrace := endsAt.Add(90 * time.Minute)
+
+	testCases := []struct {
+		name string
+		in   FixtureStatus
+		now  time.Time
+		want FixtureStatus
+	}{
+		{"live within grace stays live", FixtureLive, beforeGrace, FixtureLive},
+		{"live after grace finishes", FixtureLive, afterGrace, FixtureFinished},
+		{"scheduled after grace finishes", FixtureScheduled, afterGrace, FixtureFinished},
+		{"finished untouched", FixtureFinished, afterGrace, FixtureFinished},
+		{"cancelled untouched", FixtureCancelled, afterGrace, FixtureCancelled},
+	}
+	for _, tCase := range testCases {
+		t.Run(tCase.name, func(t *testing.T) {
+			if got := CompleteByEndTime(tCase.in, endsAt, tCase.now, grace); got != tCase.want {
+				t.Fatalf("CompleteByEndTime() = %q, want %q", got, tCase.want)
+			}
+		})
+	}
+}
+
 func TestFixture_ComputeChecksum_Stable(t *testing.T) {
 	base := Fixture{
 		Ext:      ExternalID{Provider: "olympics", Key: "EV-001"},
@@ -108,10 +135,9 @@ func TestFixture_ComputeChecksumWith_Results(t *testing.T) {
 }
 
 func TestCountry_EmojiFlag_IsThis(t *testing.T) {
-	const bra = "BRA"
-	br := Country{ISO2: "BR", ISO3: bra, IOCCode: bra, Name: "Brazil"}
-	if got := br.EmojiFlag(); got != ":flag_br:" {
-		t.Fatalf("EmojiFlag() = %q, want :flag_br:", got)
+	br := Country{ISO2: "BR", ISO3: bra, IOCCode: bra, Name: brazil}
+	if got := br.EmojiFlag(); got != flagBR {
+		t.Fatalf("EmojiFlag() = %q, want %s", got, flagBR)
 	}
 	if got := (Country{}).EmojiFlag(); got != "" {
 		t.Fatalf("EmojiFlag() on empty country = %q, want empty", got)
