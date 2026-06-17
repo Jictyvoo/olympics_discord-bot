@@ -20,11 +20,11 @@ func registerRepositories(inj remy.Injector, conf appconfig.Config, db *sql.DB) 
 		repomysql.Register(inj, db)
 		bindIface[repomysql.FixtureRepo, notifier.FixtureReader](inj)
 		bindIface[repomysql.FixtureRepo, discordsync.FixtureReader](inj)
-		bindIface[repomysql.ResultRepo, notifier.ResultReader](inj)
-		bindIface[repomysql.CompetitionRepo, notifier.CompetitionReader](inj)
-		bindIface[repomysql.ParticipantRepo, notifier.ParticipantReader](inj)
+		bindIface[repomysql.CompetitionRepo, notifier.FixtureContextReader](inj)
+		bindIface[repomysql.ParticipantRepo, notifier.CompetitorReader](inj)
 		bindIface[repomysql.NotificationRepo, notifier.NotificationRepo](inj)
 		bindIface[repomysql.DiscordEventRepo, discordsync.DiscordEventRepo](inj)
+		bindIface[repomysql.VenueRepo, discordsync.VenueReader](inj)
 		bindIface[repomysql.SubscriptionRepo, subscriptions.Repository](inj)
 		bindIface[repomysql.CountryRepo, subscriptions.CountryLister](inj)
 		bindIface[*repomysql.Repository, syncer.Repository](inj)
@@ -32,19 +32,18 @@ func registerRepositories(inj remy.Injector, conf appconfig.Config, db *sql.DB) 
 		reposqlite.Register(inj, db)
 		bindIface[reposqlite.FixtureRepo, notifier.FixtureReader](inj)
 		bindIface[reposqlite.FixtureRepo, discordsync.FixtureReader](inj)
-		bindIface[reposqlite.ResultRepo, notifier.ResultReader](inj)
-		bindIface[reposqlite.CompetitionRepo, notifier.CompetitionReader](inj)
-		bindIface[reposqlite.ParticipantRepo, notifier.ParticipantReader](inj)
+		bindIface[reposqlite.CompetitionRepo, notifier.FixtureContextReader](inj)
+		bindIface[reposqlite.ParticipantRepo, notifier.CompetitorReader](inj)
 		bindIface[reposqlite.NotificationRepo, notifier.NotificationRepo](inj)
 		bindIface[reposqlite.DiscordEventRepo, discordsync.DiscordEventRepo](inj)
+		bindIface[reposqlite.VenueRepo, discordsync.VenueReader](inj)
 		bindIface[reposqlite.SubscriptionRepo, subscriptions.Repository](inj)
 		bindIface[reposqlite.CountryRepo, subscriptions.CountryLister](inj)
 		bindIface[*reposqlite.Repository, syncer.Repository](inj)
 	}
 }
 
-// bindIface registers a factory that resolves the concrete type C and exposes
-// it under the consumer interface I.
+// bindIface exposes the concrete type C under the consumer interface I.
 func bindIface[C any, I any](inj remy.Injector) {
 	remy.RegisterConstructorArgs1(
 		inj, remy.Factory[I],

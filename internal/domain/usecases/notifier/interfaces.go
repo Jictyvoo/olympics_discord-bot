@@ -17,6 +17,9 @@ type FixtureReader interface {
 // NotificationRepo persists and queries notification records.
 type NotificationRepo interface {
 	GetNotificationByChecksum(checksum string) (eventcore.Notification, error)
+	GetLatestSentNotificationByAlert(
+		alertID eventcore.CanonicalID,
+	) (eventcore.Notification, error)
 	UpsertNotification(n eventcore.Notification) error
 	UpdateNotificationStatus(
 		id eventcore.CanonicalID,
@@ -24,9 +27,10 @@ type NotificationRepo interface {
 	) error
 }
 
-// Dispatcher sends a notification message to a channel.
+// Dispatcher sends a notification message to a channel, or edits one in place.
 type Dispatcher interface {
 	Send(channelID, content string) (messageID string, err error)
+	Edit(channelID, messageID, content string) error
 }
 
 // ChannelEnsurer resolves a channel name to its ID, creating the channel if it
@@ -42,17 +46,16 @@ type MentionResolver interface {
 	) ([]string, error)
 }
 
-// ResultReader loads the results recorded for a fixture.
-type ResultReader interface {
-	ListResultsByFixture(fixtureID eventcore.CanonicalID) ([]eventcore.Result, error)
+// FixtureContextReader resolves the competition, stage and group locating a
+// fixture in a single query.
+type FixtureContextReader interface {
+	GetFixtureContext(fixtureID eventcore.CanonicalID) (eventcore.FixtureContext, error)
 }
 
-// CompetitionReader resolves the competition that owns a fixture.
-type CompetitionReader interface {
-	GetCompetitionByFixture(fixtureID eventcore.CanonicalID) (eventcore.Competition, error)
-}
-
-// ParticipantReader loads the participants taking part in a fixture.
-type ParticipantReader interface {
-	ListParticipantsByFixture(fixtureID eventcore.CanonicalID) ([]eventcore.Participant, error)
+// CompetitorReader loads each competitor of a fixture together with its role,
+// resolved flag code and result.
+type CompetitorReader interface {
+	ListFixtureCompetitors(
+		fixtureID eventcore.CanonicalID,
+	) ([]eventcore.FixtureCompetitor, error)
 }

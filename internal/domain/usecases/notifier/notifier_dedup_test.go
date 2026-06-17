@@ -18,6 +18,7 @@ func TestNotifier_ChecksumChanged_ReNotifies(t *testing.T) {
 	f := mkFixture("renotify")
 
 	repo := NewMockNotificationRepo(ctrl)
+	noPriorSent(repo)
 	repo.EXPECT().GetNotificationByChecksum("renotify").Return(eventcore.Notification{
 		AlertID: f.ID, Status: eventcore.NotificationFailed, Checksum: "renotify",
 	}, nil)
@@ -52,6 +53,7 @@ func TestNotifier_OutOfWindow_WithPriorRecord_RecordsCancelled(t *testing.T) {
 	}
 
 	repo := NewMockNotificationRepo(ctrl)
+	noPriorSent(repo)
 	repo.EXPECT().GetNotificationByChecksum("cancel").Return(eventcore.Notification{
 		Status: eventcore.NotificationFailed, Checksum: "cancel",
 	}, nil)
@@ -81,8 +83,8 @@ func TestNotifier_FutureFixtureOutOfWindow_NoRecord(t *testing.T) {
 	}
 
 	repo := NewMockNotificationRepo(ctrl)
-	// Unfinished + still ahead, so dedup uses the results-free checksum.
-	repo.EXPECT().GetNotificationByChecksum(f.ComputeChecksum()).
+	noPriorSent(repo)
+	repo.EXPECT().GetNotificationByChecksum("future").
 		Return(eventcore.Notification{}, sql.ErrNoRows)
 	// No UpsertNotification, no Send.
 
@@ -103,6 +105,7 @@ func TestNotifier_DedupLookupError_Propagates(t *testing.T) {
 	fixtures.EXPECT().ListFixturesStartingBefore(gomock.Any()).
 		Return([]eventcore.Fixture{f}, nil)
 	repo := NewMockNotificationRepo(ctrl)
+	noPriorSent(repo)
 	repo.EXPECT().GetNotificationByChecksum("lookuperr").
 		Return(eventcore.Notification{}, want)
 

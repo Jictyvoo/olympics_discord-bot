@@ -11,26 +11,27 @@ import (
 	"github.com/jictyvoo/olhojogo/internal/domain/eventcore"
 )
 
-// Enrichment reads are best-effort: when results/competition/participants all
+// Enrichment reads are best-effort: when the context and competitor reads both
 // fail, the notification still dispatches with a degraded view.
 func TestNotifier_BuildView_EnrichmentErrors_StillDispatches(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	f := mkFixture("degraded")
 
 	repo := NewMockNotificationRepo(ctrl)
+	noPriorSent(repo)
 	repo.EXPECT().GetNotificationByChecksum("degraded").
 		Return(eventcore.Notification{}, sql.ErrNoRows)
 	repo.EXPECT().UpsertNotification(gomock.Any()).Return(nil).Times(2)
 
-	results := NewMockResultReader(ctrl)
-	results.EXPECT().ListResultsByFixture(gomock.Any()).Return(nil, errors.New("results down"))
-	comps := NewMockCompetitionReader(ctrl)
-	// ErrNoRows is the non-warn branch; still degrades to a zero competition.
-	comps.EXPECT().
-		GetCompetitionByFixture(gomock.Any()).
-		Return(eventcore.Competition{}, sql.ErrNoRows)
-	parts := NewMockParticipantReader(ctrl)
-	parts.EXPECT().ListParticipantsByFixture(gomock.Any()).Return(nil, errors.New("parts down"))
+	context := NewMockFixtureContextReader(ctrl)
+	// ErrNoRows is the non-warn branch; still degrades to a zero context.
+	context.EXPECT().
+		GetFixtureContext(gomock.Any()).
+		Return(eventcore.FixtureContext{}, sql.ErrNoRows)
+	competitors := NewMockCompetitorReader(ctrl)
+	competitors.EXPECT().
+		ListFixtureCompetitors(gomock.Any()).
+		Return(nil, errors.New("competitors down"))
 
 	rndr := NewMockRenderer(ctrl)
 	rndr.EXPECT().Render(gomock.Any()).Return("body")
@@ -43,7 +44,7 @@ func TestNotifier_BuildView_EnrichmentErrors_StillDispatches(t *testing.T) {
 		Do(func(_, _ string) { sent = true }).Return("m", nil)
 
 	n := New(
-		NewMockFixtureReader(ctrl), repo, disp, results, comps, parts, rndr,
+		NewMockFixtureReader(ctrl), repo, disp, context, competitors, rndr,
 		mentions, defaultChan, testGuild, 0,
 	)
 	n.On(f)
@@ -62,6 +63,7 @@ func TestNotifier_MentionResolverError_Propagates(t *testing.T) {
 	fixtures.EXPECT().ListFixturesStartingBefore(gomock.Any()).
 		Return([]eventcore.Fixture{f}, nil)
 	repo := NewMockNotificationRepo(ctrl)
+	noPriorSent(repo)
 	repo.EXPECT().GetNotificationByChecksum("menterr").
 		Return(eventcore.Notification{}, sql.ErrNoRows)
 	// No UpsertNotification, no Send: the error is raised while resolving mentions.

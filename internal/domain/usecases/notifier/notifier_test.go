@@ -17,9 +17,8 @@ const (
 	testGuild   = "g1"
 )
 
-// mkFixture builds a just-finished fixture inside the notify window. Being
-// finished, dedup uses its literal Checksum (not the results-free one), which
-// keeps these tests asserting against the given checksum string.
+// mkFixture builds a just-finished fixture inside the notify window. Its literal
+// Checksum governs dedup, so these tests assert against the given checksum string.
 func mkFixture(checksum string) eventcore.Fixture {
 	return eventcore.Fixture{
 		ID:       eventcore.NewID(eventcore.ProviderOlympics, "evt-"+checksum),
@@ -29,6 +28,15 @@ func mkFixture(checksum string) eventcore.Fixture {
 		Status:   eventcore.FixtureFinished,
 		Checksum: checksum,
 	}
+}
+
+// noPriorSent wires the "no message has been posted yet" expectation so the
+// notifier falls through to its first-send path.
+func noPriorSent(repo *MockNotificationRepo) {
+	repo.EXPECT().
+		GetLatestSentNotificationByAlert(gomock.Any()).
+		Return(eventcore.Notification{}, sql.ErrNoRows).
+		AnyTimes()
 }
 
 // newTestNotifier builds a Notifier with stub enrichment readers and the given
@@ -41,39 +49,33 @@ func newTestNotifier(
 	mentions MentionResolver,
 	channelID string,
 ) *Notifier {
-	resultsReader := NewMockResultReader(ctrl)
-	resultsReader.EXPECT().ListResultsByFixture(gomock.Any()).
-		Return(nil, nil).AnyTimes()
-	comps := NewMockCompetitionReader(ctrl)
-	comps.EXPECT().GetCompetitionByFixture(gomock.Any()).
-		Return(eventcore.Competition{}, nil).AnyTimes()
-	participants := NewMockParticipantReader(ctrl)
-	participants.EXPECT().ListParticipantsByFixture(gomock.Any()).
+	context := NewMockFixtureContextReader(ctrl)
+	context.EXPECT().GetFixtureContext(gomock.Any()).
+		Return(eventcore.FixtureContext{}, nil).AnyTimes()
+	competitors := NewMockCompetitorReader(ctrl)
+	competitors.EXPECT().ListFixtureCompetitors(gomock.Any()).
 		Return(nil, nil).AnyTimes()
 	rndr := NewMockRenderer(ctrl)
 	rndr.EXPECT().Render(gomock.Any()).Return("x").AnyTimes()
 
 	return New(
-		fixtures, repo, disp, resultsReader, comps, participants, rndr,
+		fixtures, repo, disp, context, competitors, rndr,
 		mentions, channelID, testGuild, 0,
 	)
 }
 
-// enrichedReaders builds the three enrichment readers, each expecting one call
+// enrichedReaders builds the two enrichment readers, each expecting one call
 // returning the given values.
 func enrichedReaders(
 	ctrl *gomock.Controller,
-	results []eventcore.Result,
-	comp eventcore.Competition,
-	parts []eventcore.Participant,
-) (*MockResultReader, *MockCompetitionReader, *MockParticipantReader) {
-	resultsReader := NewMockResultReader(ctrl)
-	resultsReader.EXPECT().ListResultsByFixture(gomock.Any()).Return(results, nil)
-	comps := NewMockCompetitionReader(ctrl)
-	comps.EXPECT().GetCompetitionByFixture(gomock.Any()).Return(comp, nil)
-	participants := NewMockParticipantReader(ctrl)
-	participants.EXPECT().ListParticipantsByFixture(gomock.Any()).Return(parts, nil)
-	return resultsReader, comps, participants
+	context eventcore.FixtureContext,
+	competitors []eventcore.FixtureCompetitor,
+) (*MockFixtureContextReader, *MockCompetitorReader) {
+	contextReader := NewMockFixtureContextReader(ctrl)
+	contextReader.EXPECT().GetFixtureContext(gomock.Any()).Return(context, nil)
+	competitorReader := NewMockCompetitorReader(ctrl)
+	competitorReader.EXPECT().ListFixtureCompetitors(gomock.Any()).Return(competitors, nil)
+	return contextReader, competitorReader
 }
 
 func TestNotifier_NotifyPending_SkipsAlreadySent(t *testing.T) {
@@ -86,6 +88,7 @@ func TestNotifier_NotifyPending_SkipsAlreadySent(t *testing.T) {
 		Return([]eventcore.Fixture{f}, nil)
 
 	repo := NewMockNotificationRepo(ctrl)
+	noPriorSent(repo)
 	repo.EXPECT().
 		GetNotificationByChecksum("abc").
 		Return(eventcore.Notification{
@@ -106,9 +109,13 @@ func TestNotifier_NotifyPending_SkipsAlreadySent(t *testing.T) {
 func TestNotifier_NotifyPending_DispatchesAndMarksSent(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	f := mkFixture("def")
-	results := []eventcore.Result{{FixtureID: f.ID, Outcome: eventcore.OutcomeMedalGold}}
-	comp := eventcore.Competition{Code: "ATH", Discipline: "Athletics"}
-	parts := []eventcore.Participant{{Name: "Usain Bolt", CountryISO: "JAM"}}
+	context := eventcore.FixtureContext{
+		Competition: eventcore.Competition{Code: "ATH", Discipline: "Athletics"},
+	}
+	competitors := []eventcore.FixtureCompetitor{{
+		Participant: eventcore.Participant{Name: "Usain Bolt", CountryISO: "JAM"},
+		Result:      eventcore.Result{Outcome: eventcore.OutcomeMedalGold},
+	}}
 
 	fixtures := NewMockFixtureReader(ctrl)
 	fixtures.EXPECT().
@@ -116,6 +123,7 @@ func TestNotifier_NotifyPending_DispatchesAndMarksSent(t *testing.T) {
 		Return([]eventcore.Fixture{f}, nil)
 
 	repo := NewMockNotificationRepo(ctrl)
+	noPriorSent(repo)
 	repo.EXPECT().
 		GetNotificationByChecksum("def").
 		Return(eventcore.Notification{}, sql.ErrNoRows)
@@ -134,7 +142,7 @@ func TestNotifier_NotifyPending_DispatchesAndMarksSent(t *testing.T) {
 		Return("msg-42", nil).
 		Times(1)
 
-	resultsReader, comps, participants := enrichedReaders(ctrl, results, comp, parts)
+	contextReader, competitorReader := enrichedReaders(ctrl, context, competitors)
 	rndr := NewMockRenderer(ctrl)
 	var lastView render.FixtureView
 	rndr.EXPECT().
@@ -148,15 +156,15 @@ func TestNotifier_NotifyPending_DispatchesAndMarksSent(t *testing.T) {
 		Return([]string{"u1", "u2"}, nil)
 
 	n := New(
-		fixtures, repo, disp, resultsReader, comps, participants, rndr,
+		fixtures, repo, disp, contextReader, competitorReader, rndr,
 		mentions, defaultChan, testGuild, 0,
 	)
 
 	if err := n.NotifyPending(); err != nil {
 		t.Fatalf("NotifyPending: %v", err)
 	}
-	if sentContent != "<@u1> <@u2> x" {
-		t.Fatalf("content = %q, want mention prefix + body", sentContent)
+	if sentContent != "x\n<@u1> <@u2>" {
+		t.Fatalf("content = %q, want body then mention footer", sentContent)
 	}
 	assertDispatchedAndSent(t, lastView, upserted)
 }
@@ -165,8 +173,7 @@ func assertDispatchedAndSent(
 	t *testing.T, lastView render.FixtureView, upserted []eventcore.Notification,
 ) {
 	t.Helper()
-	if len(lastView.Results) != 1 ||
-		lastView.Competition.Code != "ATH" || len(lastView.Participants) != 1 {
+	if lastView.Context.Competition.Code != "ATH" || len(lastView.Competitors) != 1 {
 		t.Fatalf("renderer did not receive enriched view: %+v", lastView)
 	}
 	if len(upserted) != 2 {
@@ -184,7 +191,7 @@ func assertDispatchedAndSent(
 	}
 }
 
-func TestNotifier_NotifyPending_NoMentions_NoPrefix(t *testing.T) {
+func TestNotifier_NotifyPending_NoMentions_NoSuffix(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	f := mkFixture("nopfx")
 
@@ -194,6 +201,7 @@ func TestNotifier_NotifyPending_NoMentions_NoPrefix(t *testing.T) {
 		Return([]eventcore.Fixture{f}, nil)
 
 	repo := NewMockNotificationRepo(ctrl)
+	noPriorSent(repo)
 	repo.EXPECT().
 		GetNotificationByChecksum("nopfx").
 		Return(eventcore.Notification{}, sql.ErrNoRows)
@@ -218,7 +226,7 @@ func TestNotifier_NotifyPending_NoMentions_NoPrefix(t *testing.T) {
 		t.Fatalf("NotifyPending: %v", err)
 	}
 	if sentContent != "x" {
-		t.Fatalf("content = %q, want body without prefix", sentContent)
+		t.Fatalf("content = %q, want body without footer", sentContent)
 	}
 }
 
@@ -232,6 +240,7 @@ func TestNotifier_NotifyPending_DispatchFailure_MarksFailed(t *testing.T) {
 		Return([]eventcore.Fixture{f}, nil)
 
 	repo := NewMockNotificationRepo(ctrl)
+	noPriorSent(repo)
 	repo.EXPECT().
 		GetNotificationByChecksum("xyz").
 		Return(eventcore.Notification{}, sql.ErrNoRows)
@@ -280,9 +289,8 @@ func TestNotifier_NotifyPending_FixtureReaderError(t *testing.T) {
 		fixtures,
 		NewMockNotificationRepo(ctrl),
 		NewMockDispatcher(ctrl),
-		NewMockResultReader(ctrl),
-		NewMockCompetitionReader(ctrl),
-		NewMockParticipantReader(ctrl),
+		NewMockFixtureContextReader(ctrl),
+		NewMockCompetitorReader(ctrl),
 		NewMockRenderer(ctrl),
 		NewMockMentionResolver(ctrl),
 		defaultChan,
@@ -329,6 +337,7 @@ func TestNotifier_OutOfWindow_RecordsSkipped(t *testing.T) {
 	}
 
 	repo := NewMockNotificationRepo(ctrl)
+	noPriorSent(repo)
 	repo.EXPECT().GetNotificationByChecksum("old").Return(eventcore.Notification{}, sql.ErrNoRows)
 	var got eventcore.Notification
 	repo.EXPECT().
@@ -352,25 +361,73 @@ func TestNotifier_OutOfWindow_RecordsSkipped(t *testing.T) {
 	}
 }
 
-// TestNotifier_Ongoing_UsesResultsFreeChecksum verifies an unfinished fixture
-// is deduped on its results-free checksum, not its stored Checksum.
-func TestNotifier_Ongoing_UsesResultsFreeChecksum(t *testing.T) {
+// TestNotifier_EditsInPlaceOnChange verifies that when a fixture already has a
+// sent message and its checksum changed, the existing message is edited rather
+// than a new one posted.
+func TestNotifier_EditsInPlaceOnChange(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	f := eventcore.Fixture{
-		ID:       eventcore.NewID(eventcore.ProviderOlympics, "live"),
-		StartsAt: time.Now().Add(-time.Hour),
-		EndsAt:   time.Now().Add(time.Hour),
-		Status:   eventcore.FixtureLive,
-		Checksum: "stored-with-results",
-	}
+	f := mkFixture("new")
 
 	repo := NewMockNotificationRepo(ctrl)
 	repo.EXPECT().
-		GetNotificationByChecksum(f.ComputeChecksum()).
-		Return(eventcore.Notification{Status: eventcore.NotificationSent}, nil)
-	// Already sent under the results-free checksum -> no dispatch, no upsert.
+		GetLatestSentNotificationByAlert(f.ID).
+		Return(eventcore.Notification{
+			AlertID:   f.ID,
+			MessageID: "m1",
+			Status:    eventcore.NotificationSent,
+			Checksum:  "old",
+		}, nil)
+	var updated eventcore.Notification
+	repo.EXPECT().
+		UpsertNotification(gomock.Any()).
+		Do(func(nt eventcore.Notification) { updated = nt }).
+		Return(nil)
 
 	disp := NewMockDispatcher(ctrl)
+	var edited struct {
+		channel, message string
+	}
+	disp.EXPECT().
+		Edit(defaultChan, "m1", gomock.Any()).
+		Do(func(channel, message, _ string) {
+			edited.channel, edited.message = channel, message
+		}).
+		Return(nil)
+
+	mentions := NewMockMentionResolver(ctrl)
+	mentions.EXPECT().MentionsFor(testGuild, gomock.Any(), gomock.Any()).Return(nil, nil)
+
+	n := newTestNotifier(
+		ctrl, NewMockFixtureReader(ctrl), repo, disp, mentions, defaultChan,
+	)
+
+	n.On(f)
+	if edited.channel != defaultChan || edited.message != "m1" {
+		t.Fatalf("edit target mismatch: %+v", edited)
+	}
+	if updated.MessageID != "m1" || updated.Checksum != "new" ||
+		updated.Status != eventcore.NotificationSent {
+		t.Fatalf("edited notification not updated correctly: %+v", updated)
+	}
+}
+
+// TestNotifier_NoOpWhenUnchanged verifies that an already-sent message whose
+// checksum is unchanged triggers neither an edit nor a new send.
+func TestNotifier_NoOpWhenUnchanged(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	f := mkFixture("same")
+
+	repo := NewMockNotificationRepo(ctrl)
+	repo.EXPECT().
+		GetLatestSentNotificationByAlert(f.ID).
+		Return(eventcore.Notification{
+			AlertID:   f.ID,
+			MessageID: "m1",
+			Status:    eventcore.NotificationSent,
+			Checksum:  "same",
+		}, nil)
+
+	disp := NewMockDispatcher(ctrl) // neither Send nor Edit expected
 	n := newTestNotifier(
 		ctrl,
 		NewMockFixtureReader(ctrl),
@@ -387,7 +444,7 @@ func TestNew_DefaultWindow(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	n := New(
 		NewMockFixtureReader(ctrl), NewMockNotificationRepo(ctrl), NewMockDispatcher(ctrl),
-		NewMockResultReader(ctrl), NewMockCompetitionReader(ctrl), NewMockParticipantReader(ctrl),
+		NewMockFixtureContextReader(ctrl), NewMockCompetitorReader(ctrl),
 		NewMockRenderer(ctrl), NewMockMentionResolver(ctrl), "c", testGuild, 0,
 	)
 	if n.window == 0 {

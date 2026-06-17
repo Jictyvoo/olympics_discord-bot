@@ -80,6 +80,21 @@ func (m *MockNotificationRepo) EXPECT() *MockNotificationRepoMockRecorder {
 	return m.recorder
 }
 
+// GetLatestSentNotificationByAlert mocks base method.
+func (m *MockNotificationRepo) GetLatestSentNotificationByAlert(alertID eventcore.CanonicalID) (eventcore.Notification, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetLatestSentNotificationByAlert", alertID)
+	ret0, _ := ret[0].(eventcore.Notification)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetLatestSentNotificationByAlert indicates an expected call of GetLatestSentNotificationByAlert.
+func (mr *MockNotificationRepoMockRecorder) GetLatestSentNotificationByAlert(alertID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLatestSentNotificationByAlert", reflect.TypeOf((*MockNotificationRepo)(nil).GetLatestSentNotificationByAlert), alertID)
+}
+
 // GetNotificationByChecksum mocks base method.
 func (m *MockNotificationRepo) GetNotificationByChecksum(checksum string) (eventcore.Notification, error) {
 	m.ctrl.T.Helper()
@@ -147,6 +162,20 @@ func (m *MockDispatcher) EXPECT() *MockDispatcherMockRecorder {
 	return m.recorder
 }
 
+// Edit mocks base method.
+func (m *MockDispatcher) Edit(channelID, messageID, content string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Edit", channelID, messageID, content)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Edit indicates an expected call of Edit.
+func (mr *MockDispatcherMockRecorder) Edit(channelID, messageID, content any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Edit", reflect.TypeOf((*MockDispatcher)(nil).Edit), channelID, messageID, content)
+}
+
 // Send mocks base method.
 func (m *MockDispatcher) Send(channelID, content string) (string, error) {
 	m.ctrl.T.Helper()
@@ -160,6 +189,45 @@ func (m *MockDispatcher) Send(channelID, content string) (string, error) {
 func (mr *MockDispatcherMockRecorder) Send(channelID, content any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Send", reflect.TypeOf((*MockDispatcher)(nil).Send), channelID, content)
+}
+
+// MockChannelEnsurer is a mock of ChannelEnsurer interface.
+type MockChannelEnsurer struct {
+	ctrl     *gomock.Controller
+	recorder *MockChannelEnsurerMockRecorder
+	isgomock struct{}
+}
+
+// MockChannelEnsurerMockRecorder is the mock recorder for MockChannelEnsurer.
+type MockChannelEnsurerMockRecorder struct {
+	mock *MockChannelEnsurer
+}
+
+// NewMockChannelEnsurer creates a new mock instance.
+func NewMockChannelEnsurer(ctrl *gomock.Controller) *MockChannelEnsurer {
+	mock := &MockChannelEnsurer{ctrl: ctrl}
+	mock.recorder = &MockChannelEnsurerMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockChannelEnsurer) EXPECT() *MockChannelEnsurerMockRecorder {
+	return m.recorder
+}
+
+// ResolveChannel mocks base method.
+func (m *MockChannelEnsurer) ResolveChannel(guildID, channelName string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ResolveChannel", guildID, channelName)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ResolveChannel indicates an expected call of ResolveChannel.
+func (mr *MockChannelEnsurerMockRecorder) ResolveChannel(guildID, channelName any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveChannel", reflect.TypeOf((*MockChannelEnsurer)(nil).ResolveChannel), guildID, channelName)
 }
 
 // MockMentionResolver is a mock of MentionResolver interface.
@@ -201,119 +269,80 @@ func (mr *MockMentionResolverMockRecorder) MentionsFor(guildID, countryCodes, di
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MentionsFor", reflect.TypeOf((*MockMentionResolver)(nil).MentionsFor), guildID, countryCodes, disciplineCode)
 }
 
-// MockResultReader is a mock of ResultReader interface.
-type MockResultReader struct {
+// MockFixtureContextReader is a mock of FixtureContextReader interface.
+type MockFixtureContextReader struct {
 	ctrl     *gomock.Controller
-	recorder *MockResultReaderMockRecorder
+	recorder *MockFixtureContextReaderMockRecorder
 	isgomock struct{}
 }
 
-// MockResultReaderMockRecorder is the mock recorder for MockResultReader.
-type MockResultReaderMockRecorder struct {
-	mock *MockResultReader
+// MockFixtureContextReaderMockRecorder is the mock recorder for MockFixtureContextReader.
+type MockFixtureContextReaderMockRecorder struct {
+	mock *MockFixtureContextReader
 }
 
-// NewMockResultReader creates a new mock instance.
-func NewMockResultReader(ctrl *gomock.Controller) *MockResultReader {
-	mock := &MockResultReader{ctrl: ctrl}
-	mock.recorder = &MockResultReaderMockRecorder{mock}
+// NewMockFixtureContextReader creates a new mock instance.
+func NewMockFixtureContextReader(ctrl *gomock.Controller) *MockFixtureContextReader {
+	mock := &MockFixtureContextReader{ctrl: ctrl}
+	mock.recorder = &MockFixtureContextReaderMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockResultReader) EXPECT() *MockResultReaderMockRecorder {
+func (m *MockFixtureContextReader) EXPECT() *MockFixtureContextReaderMockRecorder {
 	return m.recorder
 }
 
-// ListResultsByFixture mocks base method.
-func (m *MockResultReader) ListResultsByFixture(fixtureID eventcore.CanonicalID) ([]eventcore.Result, error) {
+// GetFixtureContext mocks base method.
+func (m *MockFixtureContextReader) GetFixtureContext(fixtureID eventcore.CanonicalID) (eventcore.FixtureContext, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListResultsByFixture", fixtureID)
-	ret0, _ := ret[0].([]eventcore.Result)
+	ret := m.ctrl.Call(m, "GetFixtureContext", fixtureID)
+	ret0, _ := ret[0].(eventcore.FixtureContext)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// ListResultsByFixture indicates an expected call of ListResultsByFixture.
-func (mr *MockResultReaderMockRecorder) ListResultsByFixture(fixtureID any) *gomock.Call {
+// GetFixtureContext indicates an expected call of GetFixtureContext.
+func (mr *MockFixtureContextReaderMockRecorder) GetFixtureContext(fixtureID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListResultsByFixture", reflect.TypeOf((*MockResultReader)(nil).ListResultsByFixture), fixtureID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFixtureContext", reflect.TypeOf((*MockFixtureContextReader)(nil).GetFixtureContext), fixtureID)
 }
 
-// MockCompetitionReader is a mock of CompetitionReader interface.
-type MockCompetitionReader struct {
+// MockCompetitorReader is a mock of CompetitorReader interface.
+type MockCompetitorReader struct {
 	ctrl     *gomock.Controller
-	recorder *MockCompetitionReaderMockRecorder
+	recorder *MockCompetitorReaderMockRecorder
 	isgomock struct{}
 }
 
-// MockCompetitionReaderMockRecorder is the mock recorder for MockCompetitionReader.
-type MockCompetitionReaderMockRecorder struct {
-	mock *MockCompetitionReader
+// MockCompetitorReaderMockRecorder is the mock recorder for MockCompetitorReader.
+type MockCompetitorReaderMockRecorder struct {
+	mock *MockCompetitorReader
 }
 
-// NewMockCompetitionReader creates a new mock instance.
-func NewMockCompetitionReader(ctrl *gomock.Controller) *MockCompetitionReader {
-	mock := &MockCompetitionReader{ctrl: ctrl}
-	mock.recorder = &MockCompetitionReaderMockRecorder{mock}
+// NewMockCompetitorReader creates a new mock instance.
+func NewMockCompetitorReader(ctrl *gomock.Controller) *MockCompetitorReader {
+	mock := &MockCompetitorReader{ctrl: ctrl}
+	mock.recorder = &MockCompetitorReaderMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockCompetitionReader) EXPECT() *MockCompetitionReaderMockRecorder {
+func (m *MockCompetitorReader) EXPECT() *MockCompetitorReaderMockRecorder {
 	return m.recorder
 }
 
-// GetCompetitionByFixture mocks base method.
-func (m *MockCompetitionReader) GetCompetitionByFixture(fixtureID eventcore.CanonicalID) (eventcore.Competition, error) {
+// ListFixtureCompetitors mocks base method.
+func (m *MockCompetitorReader) ListFixtureCompetitors(fixtureID eventcore.CanonicalID) ([]eventcore.FixtureCompetitor, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetCompetitionByFixture", fixtureID)
-	ret0, _ := ret[0].(eventcore.Competition)
+	ret := m.ctrl.Call(m, "ListFixtureCompetitors", fixtureID)
+	ret0, _ := ret[0].([]eventcore.FixtureCompetitor)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetCompetitionByFixture indicates an expected call of GetCompetitionByFixture.
-func (mr *MockCompetitionReaderMockRecorder) GetCompetitionByFixture(fixtureID any) *gomock.Call {
+// ListFixtureCompetitors indicates an expected call of ListFixtureCompetitors.
+func (mr *MockCompetitorReaderMockRecorder) ListFixtureCompetitors(fixtureID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCompetitionByFixture", reflect.TypeOf((*MockCompetitionReader)(nil).GetCompetitionByFixture), fixtureID)
-}
-
-// MockParticipantReader is a mock of ParticipantReader interface.
-type MockParticipantReader struct {
-	ctrl     *gomock.Controller
-	recorder *MockParticipantReaderMockRecorder
-	isgomock struct{}
-}
-
-// MockParticipantReaderMockRecorder is the mock recorder for MockParticipantReader.
-type MockParticipantReaderMockRecorder struct {
-	mock *MockParticipantReader
-}
-
-// NewMockParticipantReader creates a new mock instance.
-func NewMockParticipantReader(ctrl *gomock.Controller) *MockParticipantReader {
-	mock := &MockParticipantReader{ctrl: ctrl}
-	mock.recorder = &MockParticipantReaderMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockParticipantReader) EXPECT() *MockParticipantReaderMockRecorder {
-	return m.recorder
-}
-
-// ListParticipantsByFixture mocks base method.
-func (m *MockParticipantReader) ListParticipantsByFixture(fixtureID eventcore.CanonicalID) ([]eventcore.Participant, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListParticipantsByFixture", fixtureID)
-	ret0, _ := ret[0].([]eventcore.Participant)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ListParticipantsByFixture indicates an expected call of ListParticipantsByFixture.
-func (mr *MockParticipantReaderMockRecorder) ListParticipantsByFixture(fixtureID any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListParticipantsByFixture", reflect.TypeOf((*MockParticipantReader)(nil).ListParticipantsByFixture), fixtureID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListFixtureCompetitors", reflect.TypeOf((*MockCompetitorReader)(nil).ListFixtureCompetitors), fixtureID)
 }

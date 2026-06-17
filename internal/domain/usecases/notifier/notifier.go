@@ -20,26 +20,24 @@ const (
 
 // Notifier evaluates pending fixtures and dispatches notifications.
 type Notifier struct {
-	fixtures     FixtureReader
-	notifs       NotificationRepo
-	dispatch     Dispatcher
-	results      ResultReader
-	competitions CompetitionReader
-	participants ParticipantReader
-	renderer     render.Renderer
-	mentions     MentionResolver
-	channelID    string
-	guildID      string
-	window       time.Duration // fixtures whose start/end straddle this window are eligible
+	fixtures    FixtureReader
+	notifs      NotificationRepo
+	dispatch    Dispatcher
+	context     FixtureContextReader
+	competitors CompetitorReader
+	renderer    render.Renderer
+	mentions    MentionResolver
+	channelID   string
+	guildID     string
+	window      time.Duration // fixtures whose start/end straddle this window are eligible
 }
 
 func New(
 	fixtures FixtureReader,
 	notifs NotificationRepo,
 	dispatch Dispatcher,
-	results ResultReader,
-	competitions CompetitionReader,
-	participants ParticipantReader,
+	context FixtureContextReader,
+	competitors CompetitorReader,
 	renderer render.Renderer,
 	mentions MentionResolver,
 	channelID, guildID string,
@@ -49,17 +47,16 @@ func New(
 		window = defaultWindowHours*time.Hour + defaultWindowMinutes*time.Minute
 	}
 	return &Notifier{
-		fixtures:     fixtures,
-		notifs:       notifs,
-		dispatch:     dispatch,
-		results:      results,
-		competitions: competitions,
-		participants: participants,
-		renderer:     renderer,
-		mentions:     mentions,
-		channelID:    channelID,
-		guildID:      guildID,
-		window:       window,
+		fixtures:    fixtures,
+		notifs:      notifs,
+		dispatch:    dispatch,
+		context:     context,
+		competitors: competitors,
+		renderer:    renderer,
+		mentions:    mentions,
+		channelID:   channelID,
+		guildID:     guildID,
+		window:      window,
 	}
 }
 
@@ -99,15 +96,24 @@ func (n *Notifier) evaluate(f eventcore.Fixture) error {
 		return nil
 	}
 
-	// While the fixture is still ongoing, dedup on a checksum that ignores
-	// results so mid-event result updates don't trigger repeat notifications;
-	// once it finishes, the full checksum (results included) governs dedup.
+	// The fixture checksum covers status, times and results, so it changes
+	// whenever the rendered content would.
 	checksum := f.Checksum
-	if f.Status != eventcore.FixtureFinished &&
-		time.Now().Before(f.EndsAt.Add(n.window/2)) {
-		checksum = f.ComputeChecksum()
+
+	// Edit the existing message in place when content changed, not gated on the
+	// window so the final result always lands.
+	prior, err := n.notifs.GetLatestSentNotificationByAlert(f.ID)
+	switch {
+	case err != nil && !errors.Is(err, sql.ErrNoRows):
+		return err
+	case err == nil && prior.MessageID != "":
+		if prior.Checksum == checksum {
+			return nil
+		}
+		return n.edit(f, prior, checksum)
 	}
 
+	// No message yet: dedup on the checksum and gate on the window.
 	existing, err := n.notifs.GetNotificationByChecksum(checksum)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return err
@@ -115,23 +121,29 @@ func (n *Notifier) evaluate(f eventcore.Fixture) error {
 	if existing.Status == eventcore.NotificationSent {
 		return nil
 	}
-
-	// Time-window gating: a fixture is eligible only while its start/end straddle
-	// the allowed window. A fixture that is already well past is recorded as
-	// skipped/cancelled rather than sent.
 	if !n.withinWindow(f) {
 		return n.recordIneligible(f, checksum, existing)
 	}
 
+	content, err := n.compose(f)
+	if err != nil {
+		return err
+	}
+	return n.send(f, checksum, content)
+}
+
+// compose appends the @mention line after the body so the ping reads as a footer.
+func (n *Notifier) compose(f eventcore.Fixture) (string, error) {
 	view := n.buildView(f)
 	content := n.renderer.Render(view)
-	if prefix, mErr := n.mentionPrefix(view); mErr != nil {
-		return mErr
-	} else if prefix != "" {
-		content = prefix + content
+	suffix, err := n.mentionSuffix(view)
+	if err != nil {
+		return "", err
 	}
-
-	return n.send(f, checksum, content)
+	if suffix != "" {
+		content = strings.TrimRight(content, "\n") + "\n" + suffix
+	}
+	return content, nil
 }
 
 // withinWindow reports whether the fixture's start and end both fall close
@@ -174,32 +186,61 @@ func absDuration(d time.Duration) time.Duration {
 	return d
 }
 
-// mentionPrefix resolves the subscribers to @mention for the fixture's facts and
-// renders them as a "<@id> <@id> " prefix, or "" when there are no mentions.
-func (n *Notifier) mentionPrefix(
+// mentionSuffix resolves the subscribers to @mention for the fixture's facts and
+// renders them as a "<@id> <@id>" line, or "" when there are no mentions.
+func (n *Notifier) mentionSuffix(
 	view render.FixtureView,
 ) (string, error) {
 	if n.mentions == nil {
 		return "", nil
 	}
-	countryCodes := make([]string, 0, len(view.Participants))
-	for _, p := range view.Participants {
-		if p.CountryISO != "" {
-			countryCodes = append(countryCodes, p.CountryISO)
+	countryCodes := make([]string, 0, len(view.Competitors))
+	for _, c := range view.Competitors {
+		if c.Participant.CountryISO != "" {
+			countryCodes = append(countryCodes, c.Participant.CountryISO)
 		}
 	}
-	users, err := n.mentions.MentionsFor(n.guildID, countryCodes, view.Competition.Code)
+	users, err := n.mentions.MentionsFor(n.guildID, countryCodes, view.Context.Competition.Code)
 	if err != nil {
 		return "", err
 	}
 	if len(users) == 0 {
 		return "", nil
 	}
-	var b strings.Builder
-	for _, id := range users {
-		fmt.Fprintf(&b, "<@%s> ", id)
+	parts := make([]string, len(users))
+	for i, id := range users {
+		parts[i] = fmt.Sprintf("<@%s>", id)
 	}
-	return b.String(), nil
+	return strings.Join(parts, " "), nil
+}
+
+// edit updates an already-sent message in place and records the new checksum,
+// so a fixture's notification evolves from scheduled to finished as one message.
+func (n *Notifier) edit(
+	f eventcore.Fixture,
+	prior eventcore.Notification,
+	checksum string,
+) error {
+	content, err := n.compose(f)
+	if err != nil {
+		return err
+	}
+	if err = n.dispatch.Edit(n.channelID, prior.MessageID, content); err != nil {
+		slog.Error(
+			"notifier: edit failed",
+			slog.String("fixture", f.ID.String()),
+			slog.String("message", prior.MessageID),
+			slog.String("err", err.Error()),
+		)
+		return err
+	}
+	prior.Checksum = checksum
+	prior.Status = eventcore.NotificationSent
+	prior.SentAt = time.Now()
+	if err = n.notifs.UpsertNotification(prior); err != nil {
+		slog.Error("notifier: update edited notification", slog.String("err", err.Error()))
+	}
+	return nil
 }
 
 // send dispatches the fixture notification to the configured channel, deduping
@@ -244,37 +285,26 @@ func (n *Notifier) send(f eventcore.Fixture, checksum, content string) error {
 func (n *Notifier) buildView(f eventcore.Fixture) render.FixtureView {
 	view := render.FixtureView{Fixture: f}
 
-	results, err := n.results.ListResultsByFixture(f.ID)
-	if err != nil {
-		slog.Warn(
-			"notifier: load results",
-			slog.String("fixture", f.ID.String()),
-			slog.String("err", err.Error()),
-		)
-	} else {
-		view.Results = results
-	}
-
-	competition, err := n.competitions.GetCompetitionByFixture(f.ID)
+	context, err := n.context.GetFixtureContext(f.ID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		slog.Warn(
-			"notifier: load competition",
+			"notifier: load context",
 			slog.String("fixture", f.ID.String()),
 			slog.String("err", err.Error()),
 		)
 	} else {
-		view.Competition = competition
+		view.Context = context
 	}
 
-	participants, err := n.participants.ListParticipantsByFixture(f.ID)
+	competitors, err := n.competitors.ListFixtureCompetitors(f.ID)
 	if err != nil {
 		slog.Warn(
-			"notifier: load participants",
+			"notifier: load competitors",
 			slog.String("fixture", f.ID.String()),
 			slog.String("err", err.Error()),
 		)
 	} else {
-		view.Participants = participants
+		view.Competitors = competitors
 	}
 
 	return view
