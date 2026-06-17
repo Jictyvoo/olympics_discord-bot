@@ -14,10 +14,13 @@ const defaultSyncIntervalMinutes = 4
 // fixture whose feed finalizes after its day rolls over still gets picked up.
 const syncLookbackDays = 1
 
-// Runner drives the sync loop: ticks every interval and resolves a Syncer bound
-// to the tick's context (remy.GetWithContext), then calls SyncDay for today.
-// Resolving per tick is what lets each cycle's repository + provider calls honour
-// the tick context (including cancellation on shutdown).
+// syncLookaheadDays pre-fetches the next UTC day, so a late-evening kickoff in a
+// negative-offset zone (00:00 UTC) is stored before its notify window opens.
+const syncLookaheadDays = 1
+
+// Runner drives the sync loop, resolving a Syncer bound to each tick's context
+// (remy.GetWithContext) so every cycle honours that context, including
+// cancellation on shutdown.
 type Runner struct {
 	inj      remy.DependencyRetriever
 	interval time.Duration
@@ -30,7 +33,7 @@ func NewRunner(inj remy.DependencyRetriever, interval time.Duration) *Runner {
 	return &Runner{inj: inj, interval: interval}
 }
 
-// Run blocks until ctx is cancelled, calling SyncDay on each tick.
+// Run blocks until ctx is cancelled, syncing the look-back/look-ahead window on each tick.
 func (r *Runner) Run(ctx context.Context) error {
 	// Sync once immediately before first tick.
 	r.tick(ctx)
@@ -54,13 +57,19 @@ func (r *Runner) tick(ctx context.Context) {
 		slog.Error("syncer: resolve syncer", slog.String("err", err.Error()))
 		return
 	}
-	from := now.AddDate(0, 0, -syncLookbackDays)
-	if err = dailySyncer.SyncRange(from, now); err != nil {
+	from, to := syncWindow(now)
+	if err = dailySyncer.SyncRange(from, to); err != nil {
 		slog.Error(
 			"syncer: SyncRange failed",
 			slog.String("err", err.Error()),
 			slog.Time("from", from),
-			slog.Time("to", now),
+			slog.Time("to", to),
 		)
 	}
+}
+
+// syncWindow returns the [from, to] span a tick syncs: look-back before now
+// through look-ahead after.
+func syncWindow(now time.Time) (from, to time.Time) {
+	return now.AddDate(0, 0, -syncLookbackDays), now.AddDate(0, 0, syncLookaheadDays)
 }
