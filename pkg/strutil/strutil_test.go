@@ -82,6 +82,26 @@ func TestFoldDiacritics(t *testing.T) {
 	}
 }
 
+func TestNormalizeAlfaNum(t *testing.T) {
+	tests := []struct {
+		name, in, want string
+	}{
+		{"lowercases", "Volleyball", "volleyball"},
+		{"strips hyphen", "Volley-ball", "volleyball"},
+		{"folds accent", "Vôlei", "volei"},
+		{"strips spaces and punctuation", "a.b-c 123!", "abc123"},
+		{"eszett preserved", eszett, "fußball"},
+		{"empty", "", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := NormalizeAlfaNum(tt.in); got != tt.want {
+				t.Fatalf("NormalizeAlfaNum(%q) = %q, want %q", tt.in, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestEqualAlfaNum_EdgeCases(t *testing.T) {
 	tests := []equalAlfaNumCase{
 		{

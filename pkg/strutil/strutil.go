@@ -28,6 +28,18 @@ func FoldDiacritics(s string) string {
 	return folded
 }
 
+// NormalizeAlfaNum folds diacritics, drops non-alphanumeric runes and lowercases s
+// (e.g. "Volley-ball" -> "volleyball").
+func NormalizeAlfaNum(s string) string {
+	var b strings.Builder
+	for _, r := range FoldDiacritics(s) {
+		if unicode.IsLetter(r) || unicode.IsNumber(r) {
+			b.WriteRune(unicode.ToLower(r))
+		}
+	}
+	return b.String()
+}
+
 // EqualAlfaNum reports whether a and b are equal once non-alphanumeric runes
 // are stripped, comparing case-insensitively.
 func EqualAlfaNum(a string, b string) bool {
