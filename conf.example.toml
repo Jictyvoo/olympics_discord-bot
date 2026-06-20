@@ -35,3 +35,10 @@ base_url = "https://api.fifa.com/api/v3"
 language = "en"
 competition_id = "17"      # FIFA World Cup
 season_id = "285023"  # 2026 edition
+
+[[providers]]
+code = "vnl"
+enabled = false
+base_url = "https://br.volleyballworld.com"
+language = "en"
+competition_id = "1661;1662"  # tournament numbers: Men's (1661) + Women's (1662) VNL

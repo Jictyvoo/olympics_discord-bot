@@ -95,6 +95,7 @@ The curl path is preserved behind `//go:build curl` for environments that requir
 | `internal/infra/repositories/repocommon` | Shared nullable/ID helpers                                        |
 | `internal/infra/fetchers/olympicsfetch`  | Olympics SPH HTTP fetcher                                         |
 | `internal/infra/fetchers/fifafetch`      | FIFA HTTP fetcher (stub)                                          |
+| `internal/infra/fetchers/vnlfetch`       | Volleyball Nations League HTTP fetcher (Volleyball World)         |
 | `internal/infra/httpdatasource`          | Outbound HTTP client; cache-aware                                 |
 | `internal/infra/cachestore`              | Cache interface; file + memory backends                           |
 | `internal/infra/discordfacade`           | Discord API wrapper (discordgo)                                   |

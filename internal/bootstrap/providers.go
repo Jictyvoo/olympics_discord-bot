@@ -10,6 +10,7 @@ import (
 	"github.com/jictyvoo/olhojogo/internal/domain/provider"
 	"github.com/jictyvoo/olhojogo/internal/infra/fetchers/fifafetch"
 	"github.com/jictyvoo/olhojogo/internal/infra/fetchers/olympicsfetch"
+	"github.com/jictyvoo/olhojogo/internal/infra/fetchers/vnlfetch"
 )
 
 func registerProviders(inj remy.Injector, conf appconfig.Config) {
@@ -23,6 +24,8 @@ func registerProviders(inj remy.Injector, conf appconfig.Config) {
 			olympicsfetch.Register(inj, pc.BaseURL, pc.Language)
 		case eventcore.ProviderFIFA:
 			fifafetch.Register(inj, pc.BaseURL, pc.Language, pc.CompetitionID, pc.SeasonID)
+		case eventcore.ProviderVNL:
+			vnlfetch.Register(inj, pc.BaseURL, pc.Language, pc.CompetitionID)
 		default:
 			slog.Warn("bootstrap: unknown provider code", slog.String("code", pc.Code))
 			continue
