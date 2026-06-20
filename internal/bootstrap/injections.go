@@ -39,8 +39,21 @@ func DoInjections(inj remy.Injector, conf appconfig.Config, db *sql.DB) {
 	notifier.Register(
 		inj,
 		conf.Discord.DefaultChannel,
+		providerChannels(conf),
 		conf.Discord.GuildID,
 		conf.Runtime.NotifyWindow,
 	)
 	discordsync.Register(inj, conf.Discord.GuildID, conf.Runtime.DiscordHorizon)
+}
+
+// providerChannels maps each enabled provider that declares a discord_channel to
+// its channel name; providers without one fall back to the default channel.
+func providerChannels(conf appconfig.Config) map[eventcore.ProviderID]string {
+	channels := make(map[eventcore.ProviderID]string, len(conf.Providers))
+	for _, pc := range conf.Providers {
+		if pc.Enabled && pc.DiscordChannel != "" {
+			channels[pc.Code] = pc.DiscordChannel
+		}
+	}
+	return channels
 }

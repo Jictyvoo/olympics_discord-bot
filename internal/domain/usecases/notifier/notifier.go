@@ -25,7 +25,7 @@ type Notifier struct {
 	competitors CompetitorReader
 	renderer    render.Renderer
 	mentions    MentionResolver
-	channelID   string
+	channels    channelRouter
 	guildID     string
 	window      time.Duration // fixtures whose start/end straddle this window are eligible
 }
@@ -38,7 +38,8 @@ func New(
 	competitors CompetitorReader,
 	renderer render.Renderer,
 	mentions MentionResolver,
-	channelID, guildID string,
+	channels channelRouter,
+	guildID string,
 	window time.Duration,
 ) *Notifier {
 	if window == 0 {
@@ -52,7 +53,7 @@ func New(
 		competitors: competitors,
 		renderer:    renderer,
 		mentions:    mentions,
-		channelID:   channelID,
+		channels:    channels,
 		guildID:     guildID,
 		window:      window,
 	}
@@ -90,7 +91,8 @@ func (n *Notifier) NotifyPending() error {
 }
 
 func (n *Notifier) evaluate(f eventcore.Fixture) error {
-	if n.channelID == "" {
+	channelID := n.channels.channelFor(f.Ext.Provider)
+	if channelID == "" {
 		return nil
 	}
 
@@ -108,7 +110,7 @@ func (n *Notifier) evaluate(f eventcore.Fixture) error {
 		if prior.Checksum == checksum {
 			return nil
 		}
-		return n.edit(f, prior, checksum)
+		return n.edit(f, prior, checksum, channelID)
 	}
 
 	// No message yet: dedup on the checksum and gate on the window.
@@ -120,14 +122,14 @@ func (n *Notifier) evaluate(f eventcore.Fixture) error {
 		return nil
 	}
 	if !n.withinWindow(f) {
-		return n.recordIneligible(f, checksum, existing)
+		return n.recordIneligible(f, checksum, existing, channelID)
 	}
 
 	content, err := n.compose(f)
 	if err != nil {
 		return err
 	}
-	return n.send(f, checksum, content)
+	return n.send(f, checksum, content, channelID)
 }
 
 // edit updates an already-sent message in place and records the new checksum,
@@ -135,13 +137,13 @@ func (n *Notifier) evaluate(f eventcore.Fixture) error {
 func (n *Notifier) edit(
 	f eventcore.Fixture,
 	prior eventcore.Notification,
-	checksum string,
+	checksum, channelID string,
 ) error {
 	content, err := n.compose(f)
 	if err != nil {
 		return err
 	}
-	if err = n.dispatch.Edit(n.channelID, prior.MessageID, content); err != nil {
+	if err = n.dispatch.Edit(channelID, prior.MessageID, content); err != nil {
 		slog.Error(
 			"notifier: edit failed",
 			slog.String("fixture", f.ID.String()),
@@ -159,12 +161,12 @@ func (n *Notifier) edit(
 	return nil
 }
 
-func (n *Notifier) send(f eventcore.Fixture, checksum, content string) error {
+func (n *Notifier) send(f eventcore.Fixture, checksum, content, channelID string) error {
 	// Write a pending row before dispatching so a crash doesn't cause infinite retries.
 	notification := eventcore.Notification{
 		ID:        idgen.NewV7(),
 		AlertID:   f.ID,
-		ChannelID: n.channelID,
+		ChannelID: channelID,
 		Status:    eventcore.NotificationPending,
 		Checksum:  checksum,
 	}
@@ -172,12 +174,12 @@ func (n *Notifier) send(f eventcore.Fixture, checksum, content string) error {
 		return err
 	}
 
-	msgID, sendErr := n.dispatch.Send(n.channelID, content)
+	msgID, sendErr := n.dispatch.Send(channelID, content)
 	if sendErr != nil {
 		slog.Error(
 			"notifier: send failed",
 			slog.String("fixture", f.ID.String()),
-			slog.String("channel", n.channelID),
+			slog.String("channel", channelID),
 			slog.String("err", sendErr.Error()),
 		)
 		_ = n.notifs.UpdateNotificationStatus(notification.ID, eventcore.NotificationFailed)

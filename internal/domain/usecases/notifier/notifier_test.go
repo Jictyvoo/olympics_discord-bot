@@ -21,7 +21,11 @@ const (
 // Checksum governs dedup, so these tests assert against the given checksum string.
 func mkFixture(checksum string) eventcore.Fixture {
 	return eventcore.Fixture{
-		ID:       eventcore.NewID(eventcore.ProviderOlympics, "evt-"+checksum),
+		ID: eventcore.NewID(eventcore.ProviderOlympics, "evt-"+checksum),
+		Ext: eventcore.ExternalID{
+			Provider: eventcore.ProviderOlympics,
+			Key:      "evt-" + checksum,
+		},
 		Name:     "Match " + checksum,
 		StartsAt: time.Now().Add(-2 * time.Hour),
 		EndsAt:   time.Now().Add(-time.Hour),
@@ -60,7 +64,7 @@ func newTestNotifier(
 
 	return New(
 		fixtures, repo, disp, context, competitors, rndr,
-		mentions, channelID, testGuild, 0,
+		mentions, channelRouter{fallback: channelID}, testGuild, 0,
 	)
 }
 
@@ -157,7 +161,7 @@ func TestNotifier_NotifyPending_DispatchesAndMarksSent(t *testing.T) {
 
 	n := New(
 		fixtures, repo, disp, contextReader, competitorReader, rndr,
-		mentions, defaultChan, testGuild, 0,
+		mentions, channelRouter{fallback: defaultChan}, testGuild, 0,
 	)
 
 	if err := n.NotifyPending(); err != nil {
@@ -293,7 +297,7 @@ func TestNotifier_NotifyPending_FixtureReaderError(t *testing.T) {
 		NewMockCompetitorReader(ctrl),
 		NewMockRenderer(ctrl),
 		NewMockMentionResolver(ctrl),
-		defaultChan,
+		channelRouter{fallback: defaultChan},
 		testGuild,
 		0,
 	)
@@ -319,6 +323,57 @@ func TestNotifier_NoChannel_Skips(t *testing.T) {
 
 	if err := n.NotifyPending(); err != nil {
 		t.Fatalf("NotifyPending: %v", err)
+	}
+}
+
+func TestNotifier_RoutesProviderToItsChannel(t *testing.T) {
+	const olympicsChan = "olympics-chan"
+	ctrl := gomock.NewController(t)
+	f := mkFixture("routed") // mkFixture tags the fixture with ProviderOlympics
+
+	repo := NewMockNotificationRepo(ctrl)
+	noPriorSent(repo)
+	repo.EXPECT().
+		GetNotificationByChecksum("routed").
+		Return(eventcore.Notification{}, sql.ErrNoRows)
+	var upChannel string
+	repo.EXPECT().
+		UpsertNotification(gomock.Any()).
+		Do(func(nt eventcore.Notification) { upChannel = nt.ChannelID }).
+		Return(nil).
+		AnyTimes()
+
+	var sentChannel string
+	disp := NewMockDispatcher(ctrl)
+	disp.EXPECT().
+		Send(olympicsChan, gomock.Any()).
+		Do(func(channel, _ string) { sentChannel = channel }).
+		Return("m", nil).
+		Times(1)
+
+	mentions := NewMockMentionResolver(ctrl)
+	mentions.EXPECT().MentionsFor(testGuild, gomock.Any(), gomock.Any()).Return(nil, nil)
+
+	context := NewMockFixtureContextReader(ctrl)
+	context.EXPECT().GetFixtureContext(gomock.Any()).
+		Return(eventcore.FixtureContext{}, nil).AnyTimes()
+	competitors := NewMockCompetitorReader(ctrl)
+	competitors.EXPECT().ListFixtureCompetitors(gomock.Any()).Return(nil, nil).AnyTimes()
+	rndr := NewMockRenderer(ctrl)
+	rndr.EXPECT().Render(gomock.Any()).Return("x").AnyTimes()
+
+	router := channelRouter{
+		byProvider: map[eventcore.ProviderID]string{eventcore.ProviderOlympics: olympicsChan},
+		fallback:   defaultChan,
+	}
+	n := New(
+		NewMockFixtureReader(ctrl), repo, disp, context, competitors, rndr,
+		mentions, router, testGuild, 0,
+	)
+
+	n.On(f)
+	if sentChannel != olympicsChan || upChannel != olympicsChan {
+		t.Fatalf("routed to send=%q upsert=%q, want %q", sentChannel, upChannel, olympicsChan)
 	}
 }
 
@@ -401,7 +456,8 @@ func TestNew_DefaultWindow(t *testing.T) {
 	n := New(
 		NewMockFixtureReader(ctrl), NewMockNotificationRepo(ctrl), NewMockDispatcher(ctrl),
 		NewMockFixtureContextReader(ctrl), NewMockCompetitorReader(ctrl),
-		NewMockRenderer(ctrl), NewMockMentionResolver(ctrl), "c", testGuild, 0,
+		NewMockRenderer(ctrl), NewMockMentionResolver(ctrl),
+		channelRouter{fallback: "c"}, testGuild, 0,
 	)
 	if n.window == 0 {
 		t.Fatal("default window must be non-zero")

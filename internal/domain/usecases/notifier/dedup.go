@@ -23,6 +23,7 @@ func (n *Notifier) recordIneligible(
 	f eventcore.Fixture,
 	checksum string,
 	existing eventcore.Notification,
+	channelID string,
 ) error {
 	if !f.EndsAt.Before(time.Now().Add(-n.window / 2)) { //nolint:mnd // half the notify window
 		return nil
@@ -35,7 +36,7 @@ func (n *Notifier) recordIneligible(
 		eventcore.Notification{
 			ID:        idgen.NewV7(),
 			AlertID:   f.ID,
-			ChannelID: n.channelID,
+			ChannelID: channelID,
 			Status:    status,
 			Checksum:  checksum,
 		},

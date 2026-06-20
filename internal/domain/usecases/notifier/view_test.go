@@ -44,7 +44,7 @@ func TestNotifier_BuildView_EnrichmentErrors_StillDispatches(t *testing.T) {
 
 	n := New(
 		NewMockFixtureReader(ctrl), repo, disp, context, competitors, rndr,
-		mentions, defaultChan, testGuild, 0,
+		mentions, channelRouter{fallback: defaultChan}, testGuild, 0,
 	)
 	n.On(f)
 
