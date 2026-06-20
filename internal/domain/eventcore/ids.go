@@ -15,6 +15,7 @@ type ExternalID = idgen.ExternalID
 const (
 	ProviderOlympics ProviderID = "olympics"
 	ProviderFIFA     ProviderID = "fifa"
+	ProviderVNL      ProviderID = "vnl"
 )
 
 func NewID(provider ProviderID, key string) CanonicalID {
