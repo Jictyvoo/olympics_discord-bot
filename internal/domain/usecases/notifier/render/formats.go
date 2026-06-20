@@ -2,7 +2,6 @@ package render
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/jictyvoo/olhojogo/pkg/strutil"
@@ -12,6 +11,7 @@ const (
 	gymnasticsIcon = ":person_doing_cartwheel:"
 	athleticsIcon  = ":athletic_shoe:"
 	soccerIcon     = ":soccer:"
+	volleyballIcon = ":volleyball:"
 )
 
 var disciplineIconPerCode = map[string]string{
@@ -58,18 +58,22 @@ var disciplineIconPerCode = map[string]string{
 	"SHO": ":bow_and_arrow:",
 	"TRI": ":triangular_ruler:",
 	"SAL": ":sailboat:",
-	"VVO": ":volleyball:",
-	"VBV": ":volleyball: :beach:",
+	"VVO": volleyballIcon,
+	"VBV": volleyballIcon + " :beach:",
 }
 
-// disciplineIconPerName maps a diacritic-folded discipline name to its icon, for
+// disciplineIconPerName maps a NormalizeAlfaNum'd discipline name to its icon, for
 // providers whose competition code is not an Olympics discipline code.
 var disciplineIconPerName = map[string]string{
-	"football": soccerIcon,
-	"futebol":  soccerIcon,
-	"futbol":   soccerIcon,
-	"fußball":  soccerIcon,
-	"calcio":   soccerIcon,
+	"football":   soccerIcon,
+	"futebol":    soccerIcon,
+	"futbol":     soccerIcon,
+	"fußball":    soccerIcon,
+	"calcio":     soccerIcon,
+	"volleyball": volleyballIcon,
+	"volei":      volleyballIcon,
+	"voleibol":   volleyballIcon,
+	"pallavolo":  volleyballIcon,
 }
 
 func DisciplineIcon(code string) string {
@@ -77,7 +81,7 @@ func DisciplineIcon(code string) string {
 }
 
 func DisciplineIconByName(name string) string {
-	return disciplineIconPerName[strings.ToLower(strutil.FoldDiacritics(name))]
+	return disciplineIconPerName[strutil.NormalizeAlfaNum(name)]
 }
 
 // DiscordTimestamp renders a time as a Discord relative-timestamp markdown token.
