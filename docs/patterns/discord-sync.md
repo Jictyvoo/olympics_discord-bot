@@ -60,6 +60,8 @@ type ScheduledEventInput struct {
 ## Adding a guild
 
 - `config.Discord.GuildID` and `DefaultChannel` are required.
-- Per-provider channel override lives in `config.ProviderCfg.DiscordChannel`.
+- Scheduled events are guild-wide, not channel-bound, so they ignore per-provider channels.
+  The `config.ProviderCfg.DiscordChannel` override only routes the notifier's text messages: a
+  fixture goes to its provider's channel, falling back to `DefaultChannel` (see `notifier.channelRouter`).
 - Channel names resolve to IDs at startup via `discordfacade.Facade.ResolveChannel`, cached in
   the facade. Never hardcode channel IDs or names in use-case code.

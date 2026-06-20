@@ -19,7 +19,7 @@ ttl = "4m"
 
 [discord]
 guild_id = ""
-default_channel = "sports"
+default_channel = "sports"  # fallback for providers without their own discord_channel
 # token comes from OLH_DISCORD_TOKEN env var
 
 [[providers]]
@@ -42,3 +42,4 @@ enabled = false
 base_url = "https://br.volleyballworld.com"
 language = "en"
 competition_id = "1661;1662"  # tournament numbers: Men's (1661) + Women's (1662) VNL
+# discord_channel = "volei"   # route this provider's notifications to its own channel
